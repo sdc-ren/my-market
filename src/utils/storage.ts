@@ -24,6 +24,38 @@ try {
   console.warn('BroadcastChannel not supported');
 }
 
+// -----------------------------------------------------------------------------
+// Dọn dữ liệu demo: các bản seed demo có ID theo mẫu cố định (prod-001, tx-001,
+// debt-001, ord-sample-01, notif-exp-01...), còn dữ liệu thật do user tạo có ID
+// dạng <prefix>-<timestamp>. Nếu toàn bộ list đều là demo -> xoá sạch về [].
+// Chạy 1 lần duy nhất khi phát hiện, các lần sau list đã trống.
+// -----------------------------------------------------------------------------
+const DEMO_ID_PATTERNS = [
+  /^prod-0\d{2}$/,
+  /^debt-00\d$/,
+  /^tx-00\d$/,
+  /^notif-(exp|stock)-01$/,
+];
+const DEMO_ID_EXACT = new Set(['ord-sample-01']);
+
+function isDemoId(id: string): boolean {
+  if (DEMO_ID_EXACT.has(id)) return true;
+  return DEMO_ID_PATTERNS.some((re) => re.test(id));
+}
+
+/** Trả về [] nếu list toàn là demo (đồng thời ghi đè localStorage), ngược lại giữ nguyên. */
+function wipeDemoList<T extends { id: string }>(key: string, list: T[]): T[] {
+  if (list.length > 0 && list.every((it) => isDemoId(it.id))) {
+    try {
+      localStorage.setItem(key, JSON.stringify([]));
+    } catch {
+      /* bỏ qua */
+    }
+    return [];
+  }
+  return list;
+}
+
 export function broadcastMessage(type: string, payload?: any) {
   if (channel) {
     try {
@@ -93,13 +125,10 @@ export function playDingSound(type: 'order' | 'alert' | 'beep' = 'order') {
 export function getStoredProducts(): Product[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
-      return INITIAL_PRODUCTS;
-    }
-    return JSON.parse(data);
+    if (!data) return [];
+    return wipeDemoList(STORAGE_KEYS.PRODUCTS, JSON.parse(data));
   } catch {
-    return INITIAL_PRODUCTS;
+    return [];
   }
 }
 
@@ -142,13 +171,10 @@ export function saveStoredCategories(categories: Category[]): void {
 export function getStoredTransactions(): InventoryTransaction[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(INITIAL_TRANSACTIONS));
-      return INITIAL_TRANSACTIONS;
-    }
-    return JSON.parse(data);
+    if (!data) return [];
+    return wipeDemoList(STORAGE_KEYS.TRANSACTIONS, JSON.parse(data));
   } catch {
-    return INITIAL_TRANSACTIONS;
+    return [];
   }
 }
 
@@ -164,49 +190,8 @@ export function saveStoredTransactions(transactions: InventoryTransaction[]): vo
 export function getStoredOrders(): Order[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    if (!data) {
-      // Create one sample order
-      const sampleOrder: Order = {
-        id: 'ord-sample-01',
-        code: 'DH-8902',
-        customerName: 'Chị Lan (Chung cư 3B)',
-        customerPhone: '0912 345 678',
-        customerAddress: 'Phòng 402, Lô B Chung cư An Phú',
-        deliveryType: 'DELIVERY',
-        items: [
-          {
-            productId: 'prod-001',
-            barcode: '8934563028124',
-            productName: 'Mì Hảo Hảo Tôm Chua Cay 75g',
-            price: 4500,
-            costPrice: 3800,
-            quantity: 5,
-            unit: 'Gói',
-            image: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=500&auto=format&fit=crop&q=80',
-          },
-          {
-            productId: 'prod-002',
-            barcode: '8935049500544',
-            productName: 'Nước ngọt Coca-Cola Sleek lon 320ml',
-            price: 11000,
-            costPrice: 8500,
-            quantity: 2,
-            unit: 'Lon',
-            image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop&q=80',
-          },
-        ],
-        totalAmount: 44500,
-        paymentMethod: 'VIETQR',
-        paymentStatus: 'PAID',
-        orderStatus: 'PACKING',
-        createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-        note: 'Giao trước 12h trưa giúp em ạ',
-      };
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([sampleOrder]));
-      return [sampleOrder];
-    }
-    return JSON.parse(data);
+    if (!data) return [];
+    return wipeDemoList(STORAGE_KEYS.ORDERS, JSON.parse(data));
   } catch {
     return [];
   }
@@ -243,31 +228,8 @@ export function saveStoredSettings(settings: StoreSettings): void {
 export function getStoredNotifications(): AppNotification[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-    if (!data) {
-      const initialNotifs: AppNotification[] = [
-        {
-          id: 'notif-exp-01',
-          type: 'EXPIRY_ALERT',
-          title: 'Cảnh báo hạn sử dụng',
-          message: 'Bánh Oreo Vani 119.6g còn 7 ngày nữa hết hạn. Cần giảm giá hoặc đưa ra vị trí nổi bật!',
-          timestamp: new Date().toISOString(),
-          read: false,
-          productId: 'prod-004',
-        },
-        {
-          id: 'notif-stock-01',
-          type: 'STOCK_LOW',
-          title: 'Cảnh báo sắp hết hàng',
-          message: 'Sữa tươi Vinamilk 1L chỉ còn 4 hộp trong kho (dưới mức tối thiểu 10).',
-          timestamp: new Date().toISOString(),
-          read: false,
-          productId: 'prod-003',
-        },
-      ];
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(initialNotifs));
-      return initialNotifs;
-    }
-    return JSON.parse(data);
+    if (!data) return [];
+    return wipeDemoList(STORAGE_KEYS.NOTIFICATIONS, JSON.parse(data));
   } catch {
     return [];
   }
@@ -331,13 +293,10 @@ export function generateInventoryAuditReport(products: Product[], settings: Stor
 export function getStoredDebtors(): Debtor[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.DEBTORS);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEYS.DEBTORS, JSON.stringify(INITIAL_DEBTORS));
-      return INITIAL_DEBTORS;
-    }
-    return JSON.parse(data);
+    if (!data) return [];
+    return wipeDemoList(STORAGE_KEYS.DEBTORS, JSON.parse(data));
   } catch {
-    return INITIAL_DEBTORS;
+    return [];
   }
 }
 

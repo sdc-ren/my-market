@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Order, InventoryTransaction, StoreSettings, Category, Debtor } from '../types';
 import { formatVND, formatDate, getExpiryStatus } from '../utils/vietqr';
 import { generateInventoryAuditReport, playDingSound } from '../utils/storage';
 import { DebtManagementView } from './DebtManagementView';
 import { ProductImage } from './ProductImage';
 import { StoreSettingsView } from './StoreSettingsView';
+import { isStoreOpenNow } from '../utils/businessHours';
 import {
   TrendingUp,
   Package,
@@ -98,8 +99,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   onOpenNewProductModal,
   onEditProduct,
 }) => {
-  const [activeTab, setActiveTab] = useState<'REVENUE' | 'INVENTORY' | 'EXPIRY' | 'ORDERS' | 'CATEGORIES' | 'DEBT' | 'SETTINGS'>('REVENUE');
-  const [revenueSubTab, setRevenueSubTab] = useState<'OVERVIEW' | 'MONTHLY'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'REVENUE' | 'INVENTORY' | 'EXPIRY' | 'ORDERS' | 'CATEGORIES' | 'DEBT' | 'SETTINGS'>(() => {
+    const saved = localStorage.getItem('taphoa_owner_tab');
+    const valid = ['REVENUE', 'INVENTORY', 'EXPIRY', 'ORDERS', 'CATEGORIES', 'DEBT', 'SETTINGS'];
+    return (valid.includes(saved || '') ? saved : 'REVENUE') as 'REVENUE' | 'INVENTORY' | 'EXPIRY' | 'ORDERS' | 'CATEGORIES' | 'DEBT' | 'SETTINGS';
+  });
+  const [revenueSubTab, setRevenueSubTab] = useState<'OVERVIEW' | 'MONTHLY'>(() => {
+    const saved = localStorage.getItem('taphoa_revenue_subtab');
+    return saved === 'MONTHLY' ? 'MONTHLY' : 'OVERVIEW';
+  });
+
+  // Giữ state màn hình khi F5: lưu tab đang mở
+  useEffect(() => {
+    localStorage.setItem('taphoa_owner_tab', activeTab);
+  }, [activeTab]);
+  useEffect(() => {
+    localStorage.setItem('taphoa_revenue_subtab', revenueSubTab);
+  }, [revenueSubTab]);
   const [searchStock, setSearchStock] = useState('');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW' | 'OUT'>('ALL');
   const [expiryFilter, setExpiryFilter] = useState<'ALL' | 'CRITICAL' | 'WARNING' | 'EXPIRED'>('ALL');
@@ -461,7 +477,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-extrabold uppercase">
                 Bảng điều khiển Quản Lý
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span
+                className={`w-2 h-2 rounded-full animate-pulse ${isStoreOpenNow(settings.businessHours) ? 'bg-emerald-500' : 'bg-rose-400'}`}
+                title={isStoreOpenNow(settings.businessHours) ? 'Đang mở cửa' : 'Đã đóng cửa'}
+              />
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
               {settings.storeName}
