@@ -1,0 +1,6 @@
+{
+  "name": "Tạp Hoá Gia Đình - Quản Lý & Bán Hàng",
+  "description": "Ứng dụng quản lý tạp hoá thông minh: sổ ghi nợ khách hàng từng người riêng biệt với schema cơ sở dữ liệu Supabase, kiểm kho, hạn sử dụng, doanh thu và thanh toán VietQR thời gian thực.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

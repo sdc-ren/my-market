@@ -1,0 +1,34 @@
+# ==============================================================================
+# My Market - docker compose
+# Chỉ 1 service duy nhất: app (Node.js Express + React).
+# Database dùng Supabase (managed, bên ngoài) -> KHÔNG cần container Postgres/Redis.
+# ==============================================================================
+# Cách dùng:
+#   1. Đảm bảo file .env (cùng thư mục với compose này) có DATABASE_URL & DIRECT_URL
+#      trỏ THẲNG tới Supabase (dạng aws-0-....pooler.supabase.com), KHÔNG dùng
+#      127.0.0.1 (địa chỉ tunnel chỉ có ý nghĩa trên máy dev của Muse).
+#   2. Chạy:  docker compose up -d --build
+#   3. Mở:    http://localhost:3000
+#   4. Tạo bảng + seed (chỉ cần lần đầu):
+#             docker compose exec app npm run db:push
+#             docker compose exec app npm run db:seed
+# ==============================================================================
+
+services:
+  app:
+    build: .
+    container_name: my-market
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
