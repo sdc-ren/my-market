@@ -43,6 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             expiryWarningDays: s.expiryWarningDays || 30,
             ownerPin: s.ownerPin || '1234',
             logoUrl: s.logoUrl || '',
+            businessHours: s.businessHours || [],
           })
           .onConflictDoUpdate({
             target: schema.storeSettings.id,
@@ -58,6 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               expiryWarningDays: s.expiryWarningDays,
               ownerPin: s.ownerPin,
               logoUrl: s.logoUrl || '',
+              businessHours: s.businessHours || [],
               updatedAt: new Date(),
             },
           });

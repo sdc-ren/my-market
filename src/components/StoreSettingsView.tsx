@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StoreSettings } from '../types';
+import { StoreSettings, BusinessHour } from '../types';
 import {
   Store,
   Phone,
@@ -12,6 +12,9 @@ import {
   Upload,
   Link as LinkIcon,
   CheckCircle2,
+  Clock,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 interface StoreSettingsViewProps {
@@ -61,6 +64,23 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
   const set = (k: keyof StoreSettings, v: string | number) => {
     setForm((prev) => ({ ...prev, [k]: v }));
     setSavedTick(false);
+  };
+
+  // Khung giờ mở cửa (nhiều mốc mỗi ngày: sáng/chiều...)
+  const hours: BusinessHour[] = form.businessHours ?? [];
+  const updateHour = (idx: number, patch: Partial<BusinessHour>) => {
+    const next = hours.map((h, i) => (i === idx ? { ...h, ...patch } : h));
+    setForm((prev) => ({ ...prev, businessHours: next }));
+    setSavedTick(false);
+  };
+  const addHour = () => {
+    setForm((prev) => ({
+      ...prev,
+      businessHours: [...(prev.businessHours ?? []), { label: '', open: '06:00', close: '22:00' }],
+    }));
+  };
+  const removeHour = (idx: number) => {
+    setForm((prev) => ({ ...prev, businessHours: (prev.businessHours ?? []).filter((_, i) => i !== idx) }));
   };
 
   // Upload logo từ máy: tự resize về tối đa 256px rồi lưu dạng data URI (không cần host ảnh ngoài)
@@ -237,7 +257,67 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
         </div>
       </Section>
 
-      {/* 3. VietQR */}
+      {/* 3. Giờ mở cửa */}
+      <Section
+        icon={<Clock className="w-4 h-4" />}
+        title="Giờ mở cửa"
+        desc="Các khung giờ bán trong ngày, hiển thị trên thanh header website."
+      >
+        <div className="sm:col-span-2 space-y-2">
+          {hours.length === 0 && (
+            <p className="text-xs text-slate-400">Chưa có khung giờ nào — bấm "Thêm khung giờ" để tạo.</p>
+          )}
+          {hours.map((h, idx) => (
+            <div key={idx} className="flex flex-wrap items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+              <div className="flex-1 min-w-28">
+                <label className={labelCls}>Tên khung</label>
+                <input
+                  className={inputCls}
+                  value={h.label}
+                  onChange={(e) => updateHour(idx, { label: e.target.value })}
+                  placeholder="VD: Buổi sáng"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Mở cửa</label>
+                <input
+                  type="time"
+                  className={inputCls}
+                  value={h.open}
+                  onChange={(e) => updateHour(idx, { open: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Đóng cửa</label>
+                <input
+                  type="time"
+                  className={inputCls}
+                  value={h.close}
+                  onChange={(e) => updateHour(idx, { close: e.target.value })}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeHour(idx)}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                title="Xóa khung giờ này"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addHour}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-emerald-300 text-emerald-700 text-xs font-bold hover:bg-emerald-50 transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Thêm khung giờ
+          </button>
+        </div>
+      </Section>
+
+      {/* 4. VietQR */}
       <Section
         icon={<QrCode className="w-4 h-4" />}
         title="Thanh toán VietQR"
@@ -272,7 +352,7 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
         </div>
       </Section>
 
-      {/* 4. Cảnh báo kho */}
+      {/* 5. Cảnh báo kho */}
       <Section
         icon={<Bell className="w-4 h-4" />}
         title="Cảnh báo kho & hạn dùng"
@@ -300,7 +380,7 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
         </div>
       </Section>
 
-      {/* 5. Bảo mật */}
+      {/* 6. Bảo mật */}
       <Section
         icon={<Lock className="w-4 h-4" />}
         title="Bảo mật quản lý"

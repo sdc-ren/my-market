@@ -1,6 +1,7 @@
 import React from 'react';
 import { StoreSettings, Order } from '../types';
 import { formatVND } from '../utils/vietqr';
+import { isStoreOpenNow, formatBusinessHours } from '../utils/businessHours';
 import {
   Store,
   ShoppingCart,
@@ -53,6 +54,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenActiveOrderTracking,
   settings,
 }) => {
+  const openNow = isStoreOpenNow(settings.businessHours);
+  const hoursText = formatBusinessHours(settings.businessHours);
   return (
     <header className="w-full sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs select-none">
       {/* Top Bar (Clean, compact, no horizontal overflow) */}
@@ -74,9 +77,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <h1 className="font-extrabold text-xs sm:text-base text-slate-900 leading-tight truncate">
               {settings.storeName}
             </h1>
-            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-500 font-medium">
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span className="truncate">Mở cửa</span>
+            <div
+              className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-500 font-medium"
+              title={hoursText ? `Giờ mở cửa: ${hoursText}` : undefined}
+            >
+              <span
+                className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${openNow ? 'bg-emerald-500' : 'bg-rose-400'}`}
+              />
+              <span className={`truncate font-semibold ${openNow ? 'text-emerald-700' : 'text-rose-500'}`}>
+                {openNow ? 'Đang mở cửa' : 'Đã đóng cửa'}
+              </span>
+              {hoursText && (
+                <span className="hidden md:inline text-slate-400 truncate">• {hoursText}</span>
+              )}
               <span className="hidden sm:inline text-slate-400">• Hotline: {settings.phone}</span>
             </div>
           </div>

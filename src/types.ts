@@ -87,8 +87,16 @@ export interface AppNotification {
   productId?: string;
 }
 
-export interface StoreSettings {
-  storeName: string;
+// ==============================================================================
+// KHUNG GIỜ MỞ CỬA (nhiều mốc mỗi ngày: sáng/chiều...)
+// ==============================================================================
+export interface BusinessHour {
+  label: string; // VD: "Buổi sáng"
+  open: string; // "06:00"
+  close: string; // "11:30"
+}
+
+export interface StoreSettings {  storeName: string;
   phone: string;
   address: string;
   bankId: string; // e.g., 'MB', 'VCB', 'TCB'
@@ -99,6 +107,7 @@ export interface StoreSettings {
   expiryWarningDays: number;
   ownerPin?: string; // PIN bảo mật quản lý (mặc định '1234')
   logoUrl?: string; // URL logo cửa hàng (hiện ở navbar)
+  businessHours?: BusinessHour[]; // Các khung giờ mở cửa mỗi ngày
 }
 
 // ==============================================================================

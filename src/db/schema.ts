@@ -1,5 +1,6 @@
-import { pgTable, text, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import type { BusinessHour } from '../types';
 
 // -----------------------------------------------------------------------------
 // 1. CATEGORIES (Danh mục hàng hóa)
@@ -135,6 +136,7 @@ export const storeSettings = pgTable('store_settings', {
   expiryWarningDays: integer('expiry_warning_days').default(30),
   ownerPin: text('owner_pin').default('1234'),
   logoUrl: text('logo_url').default(''),
+  businessHours: jsonb('business_hours').$type<BusinessHour[]>().default([]),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 

@@ -23,6 +23,10 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   expiryWarningDays: 30,
   ownerPin: '1234',
   logoUrl: '',
+  businessHours: [
+    { label: 'Buổi sáng', open: '06:00', close: '11:30' },
+    { label: 'Buổi chiều', open: '13:30', close: '22:00' },
+  ],
 };
 
 // Current local date in context is around 2026-09-15

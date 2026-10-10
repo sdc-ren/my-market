@@ -512,6 +512,7 @@ app.post('/api/settings', async (req: Request, res: Response) => {
           expiryWarningDays: s.expiryWarningDays || 30,
           ownerPin: s.ownerPin || '1234',
           logoUrl: s.logoUrl || '',
+          businessHours: s.businessHours || [],
         })
         .onConflictDoUpdate({
           target: schema.storeSettings.id,
@@ -527,6 +528,7 @@ app.post('/api/settings', async (req: Request, res: Response) => {
             expiryWarningDays: s.expiryWarningDays,
             ownerPin: s.ownerPin,
             logoUrl: s.logoUrl || '',
+            businessHours: s.businessHours || [],
             updatedAt: new Date(),
           },
         });
