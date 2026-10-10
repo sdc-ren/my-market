@@ -1,8 +1,55 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
+
 !.env.example
+!.vscode/extensions.json
+# === Công cụ nội bộ / máy cá nhân ===
+# === Dependencies ===
+# === Editor / IDE ===
+# === Hệ điều hành ===
+# === Khoá / chứng chỉ (secrets) ===
+# === Logs ===
+# === My Market (Vite) ===
+# === Môi trường (secrets) — KHÔNG commit, trừ mẫu ===
+# === Next.js build / output ===
+# === Test / coverage ===
+# === Tài liệu & thiết kế nội bộ — KHÔNG public ===
+*.cer
+*.crt
+*.der
+*.key
+*.log
+*.p12
+*.pem
+*.pfx
+*.tsbuildinfo
+.DS_Store
+.claude/settings.local.json
+.codegraph/
+.env
+.env*
+.env.*
+.idea/
+.pnp.cjs
+.pnp.js
+.vercel
+.vscode/*
+.yarn/install-state.gz
+/.next/
+/.pnp
+/build
+/coverage
+/design/
+/docs/
+/node_modules
+/out/
+Thumbs.db
+build/
+coverage/
+dist/
+id_ed25519
+id_rsa
+next-env.d.ts
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
