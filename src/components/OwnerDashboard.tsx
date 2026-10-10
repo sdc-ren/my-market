@@ -113,49 +113,113 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     description: '',
   });
 
-  // Compute Revenue Stats
+  // Compute Revenue Stats — SỐ LIỆU THẬT từ đơn hàng (không dùng số demo)
   const revenueStats = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dayKeyOf = (iso: string) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    const now = new Date();
+    const todayKey = dayKeyOf(now.toISOString());
+    const yd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const yesterdayKey = `${yd.getFullYear()}-${pad(yd.getMonth() + 1)}-${pad(yd.getDate())}`;
 
-    // Orders placed today
-    const todayOrders = orders.filter((o) => o.createdAt.startsWith(todayStr) && o.orderStatus !== 'CANCELLED');
-    const todayRevenue = todayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const validOrders = orders.filter((o) => o.orderStatus !== 'CANCELLED');
+    const sumDay = (key: string) => {
+      const dayOrders = validOrders.filter((o) => dayKeyOf(o.createdAt) === key);
+      const revenue = dayOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+      const cost = dayOrders.reduce(
+        (s, o) => s + o.items.reduce((ss, it) => ss + (it.costPrice || 0) * (it.quantity || 0), 0),
+        0
+      );
+      return { revenue, profit: revenue - cost, count: dayOrders.length };
+    };
 
-    // Calculate today profit
-    let todayCost = 0;
-    for (const ord of todayOrders) {
-      for (const item of ord.items) {
-        todayCost += item.costPrice * item.quantity;
-      }
-    }
-    const todayProfit = todayRevenue - todayCost;
+    const today = sumDay(todayKey);
+    const yesterday = sumDay(yesterdayKey);
+    const pctVsYesterday =
+      yesterday.revenue > 0 ? ((today.revenue - yesterday.revenue) / yesterday.revenue) * 100 : null;
+    const margin = today.revenue > 0 ? (today.profit / today.revenue) * 100 : null;
 
-    // All-time total revenue
-    const allRevenue = orders
-      .filter((o) => o.orderStatus !== 'CANCELLED')
-      .reduce((sum, o) => sum + o.totalAmount, 0);
+    const allRevenue = validOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
 
-    // Weekly mock trend chart data
-    const daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-    const chartData = daysOfWeek.map((day, idx) => {
-      // realistic distributed revenue
-      const baseRev = 850000 + (idx * 210000) % 650000 + (idx === 6 ? 550000 : 0);
-      const baseProfit = baseRev * 0.22;
+    // Biểu đồ 7 ngày gần nhất (số thật)
+    const weekdayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const chartData = Array.from({ length: 7 }, (_, k) => {
+      const i = 6 - k;
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const s = sumDay(key);
       return {
-        day,
-        doanhThu: idx === 1 ? todayRevenue + 620000 : baseRev,
-        loiNhuan: idx === 1 ? todayProfit + 140000 : baseProfit,
+        day: i === 0 ? 'Hôm nay' : weekdayNames[d.getDay()],
+        doanhThu: s.revenue,
+        loiNhuan: s.profit,
       };
     });
 
     return {
-      todayRevenue: todayRevenue > 0 ? todayRevenue : 1485000,
-      todayProfit: todayProfit > 0 ? todayProfit : 325000,
-      todayOrdersCount: todayOrders.length > 0 ? todayOrders.length : 14,
-      allRevenue: allRevenue > 0 ? allRevenue : 28450000,
+      todayRevenue: today.revenue,
+      todayProfit: today.profit,
+      todayOrdersCount: today.count,
+      pctVsYesterday,
+      margin,
+      allRevenue,
       chartData,
     };
   }, [orders]);
+
+  // Doanh thu theo tháng — SỐ LIỆU THẬT từ đơn hàng
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const monthlyStats = useMemo(() => {
+    const monthKeyOf = (iso: string): string | null => {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const byMonth = new Map<string, { revenue: number; profit: number; count: number }>();
+    for (const o of orders) {
+      if (o.orderStatus === 'CANCELLED') continue;
+      const m = monthKeyOf(o.createdAt);
+      if (!m) continue;
+      const cost = o.items.reduce((s, it) => s + (it.costPrice || 0) * (it.quantity || 0), 0);
+      const e = byMonth.get(m) || { revenue: 0, profit: 0, count: 0 };
+      e.revenue += o.totalAmount || 0;
+      e.profit += (o.totalAmount || 0) - cost;
+      e.count += 1;
+      byMonth.set(m, e);
+    }
+    const now = new Date();
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const months = [...byMonth.keys()].sort().reverse();
+    if (!months.includes(curMonth)) months.unshift(curMonth);
+
+    // 6 tháng gần nhất cho biểu đồ
+    const last6: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      last6.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    const chartData = last6.map((m) => {
+      const e = byMonth.get(m);
+      return {
+        month: `T${Number(m.split('-')[1])}`,
+        doanhThu: e?.revenue || 0,
+        loiNhuan: e?.profit || 0,
+      };
+    });
+
+    const selected = byMonth.get(selectedMonth) || { revenue: 0, profit: 0, count: 0 };
+    const monthLabel = (m: string) => {
+      const [y, mm] = m.split('-');
+      return `Tháng ${Number(mm)}/${y}`;
+    };
+    return { months, chartData, selected, monthLabel };
+  }, [orders, selectedMonth]);
 
   // Inventory Audit Data
   const auditReport = useMemo(() => {
@@ -609,7 +673,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 </div>
                 <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 mt-1">
                   <ArrowUpRight className="w-3.5 h-3.5" />
-                  <span>+18.5% so với hôm qua</span>
+                  <span>
+                    {revenueStats.pctVsYesterday === null
+                      ? 'Chưa có dữ liệu hôm qua'
+                      : `${revenueStats.pctVsYesterday >= 0 ? '+' : ''}${revenueStats.pctVsYesterday.toFixed(1)}% so với hôm qua`}
+                  </span>
                 </div>
               </div>
 
@@ -624,7 +692,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   {formatVND(revenueStats.todayProfit)}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Tỷ suất lợi nhuận ~22%
+                  {revenueStats.margin === null
+                    ? 'Chưa có doanh thu hôm nay'
+                    : `Tỷ suất lợi nhuận ${revenueStats.margin.toFixed(1)}%`}
                 </div>
               </div>
 
@@ -698,6 +768,92 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     <Bar dataKey="loiNhuan" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={38} />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Monthly Revenue Section — số thật từ đơn hàng */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Doanh thu theo tháng</h3>
+                  <p className="text-xs text-slate-400">Chọn tháng để xem chi tiết doanh thu & lợi nhuận</p>
+                </div>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  {monthlyStats.months.map((m) => (
+                    <option key={m} value={m}>
+                      {monthlyStats.monthLabel(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3 Metric Cards for selected month */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Doanh thu {monthlyStats.monthLabel(selectedMonth)}
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 mt-2">
+                    {formatVND(monthlyStats.selected.revenue)}
+                  </div>
+                </div>
+                <div className="bg-sky-50/60 p-4 rounded-2xl border border-sky-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500">Lợi nhuận gộp</span>
+                    <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-emerald-700 mt-2">
+                    {formatVND(monthlyStats.selected.profit)}
+                  </div>
+                </div>
+                <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500">Đơn hàng</span>
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 mt-2">
+                    {monthlyStats.selected.count} đơn
+                  </div>
+                </div>
+              </div>
+
+              {/* 6-month chart */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-600 mb-2">6 tháng gần nhất</h4>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyStats.chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} stroke="#64748b" />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        fontSize={11}
+                        stroke="#64748b"
+                        tickFormatter={(val) => `${(val / 1000000).toFixed(val >= 1000000 ? 1 : 0)}tr`}
+                      />
+                      <Tooltip
+                        formatter={(val: any) => formatVND(Number(val))}
+                        contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '12px' }}
+                      />
+                      <Bar dataKey="doanhThu" fill="#059669" radius={[6, 6, 0, 0]} maxBarSize={38} />
+                      <Bar dataKey="loiNhuan" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={38} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 

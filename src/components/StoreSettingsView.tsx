@@ -120,9 +120,9 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
   };
 
   return (
-    <div className="space-y-4 animate-fadeIn max-w-4xl">
+    <div className="animate-fadeIn max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-black text-slate-900">Cấu hình cửa hàng</h2>
           <p className="text-xs text-slate-500">
@@ -147,6 +147,8 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
         </div>
       </div>
 
+      {/* Sections: 2 cột cân đối trên desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {/* 1. Thương hiệu */}
       <Section
         icon={<Store className="w-4 h-4" />}
@@ -402,9 +404,10 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
           </p>
         </div>
       </Section>
+      </div>
 
       {/* Địa chỉ icon */}
-      <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
+      <p className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-4">
         <MapPin className="w-3.5 h-3.5" />
         Mọi thay đổi được lưu vào database và áp dụng ngay trên website.
       </p>
