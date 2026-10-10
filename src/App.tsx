@@ -46,7 +46,14 @@ export default function App() {
 
   // Customer Shopping & UI State
   const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
-  const [mode, setMode] = useState<'customer' | 'owner'>('customer');
+  const [mode, setMode] = useState<'customer' | 'owner'>(() => {
+    try {
+      // Giữ chế độ màn hình khi F5: đang ở Quản lý thì tải lại vẫn ở Quản lý
+      return localStorage.getItem('taphoa_mode') === 'owner' ? 'owner' : 'customer';
+    } catch {
+      return 'customer';
+    }
+  });
   const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem('taphoa_owner_auth') === 'true';
@@ -611,6 +618,13 @@ export default function App() {
     } catch {}
     setMode('customer');
   };
+
+  // Lưu chế độ màn hình để F5 không bị đá về màn hình khách
+  useEffect(() => {
+    try {
+      localStorage.setItem('taphoa_mode', mode);
+    } catch {}
+  }, [mode]);
 
   return (
     <div className="w-full min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased overflow-x-hidden">

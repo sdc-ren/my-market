@@ -63,7 +63,7 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
             <QrCode className="w-5 h-5 text-emerald-200" />
             <div>
               <h3 className="font-bold text-sm">Thanh Toán VietQR Tự Động</h3>
-              <p className="text-[11px] text-emerald-100">Đơn hàng: {order.code}</p>
+              <p className="mt-0.5 text-[11px] text-emerald-100">Đơn hàng: {order.code}</p>
             </div>
           </div>
           <button

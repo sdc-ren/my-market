@@ -785,7 +785,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Biểu đồ Doanh thu & Lợi nhuận tuần này</h3>
-                  <p className="text-xs text-slate-400">Dữ liệu doanh thu bán lẻ hàng ngày</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Dữ liệu doanh thu bán lẻ hàng ngày</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <div className="flex items-center gap-1.5">
@@ -830,7 +830,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Doanh thu theo tháng</h3>
-                  <p className="text-xs text-slate-400">Chọn tháng để xem chi tiết doanh thu & lợi nhuận</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Chọn tháng để xem chi tiết doanh thu & lợi nhuận</p>
                 </div>
                 <select
                   value={selectedMonth}
@@ -1130,6 +1130,30 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         </tr>
                       );
                     })}
+                    {filteredStockProducts.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="py-12 px-4 text-center">
+                          <Package className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                          <h4 className="font-bold text-slate-700">
+                            {products.length === 0 ? 'Kho đang trống' : 'Không tìm thấy sản phẩm phù hợp'}
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-1 mb-3">
+                            {products.length === 0
+                              ? 'Thêm sản phẩm đầu tiên để bắt đầu quản lý kho hàng.'
+                              : 'Thử đổi từ khoá tìm kiếm hoặc bộ lọc khác.'}
+                          </p>
+                          {products.length === 0 && (
+                            <button
+                              onClick={onOpenNewProductModal}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Thêm sản phẩm đầu tiên
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1187,7 +1211,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Danh sách theo dõi Hạn Sử Dụng chi tiết</h3>
-                  <p className="text-xs text-slate-400">Tự động cảnh báo và gợi ý xử lý hàng cận hạn</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Tự động cảnh báo và gợi ý xử lý hàng cận hạn</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1255,6 +1279,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         </td>
                       </tr>
                     ))}
+                    {filteredExpiryProducts.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-12 px-4 text-center">
+                          <CheckCircle2 className="w-12 h-12 mx-auto mb-2 text-emerald-300" />
+                          <h4 className="font-bold text-slate-700">
+                            {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không có sản phẩm cần theo dõi'}
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {products.length === 0
+                              ? 'Thêm sản phẩm vào kho để bắt đầu theo dõi hạn sử dụng.'
+                              : 'Tất cả sản phẩm đều có hạn sử dụng an toàn.'}
+                          </p>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1268,7 +1307,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-800">Quản lý Đơn hàng Khách Đặt Real-time</h3>
-                <p className="text-xs text-slate-400">Trạng thái sẽ được đồng bộ ngay tức thì tới thiết bị của khách</p>
+                <p className="text-xs text-slate-400 mt-0.5">Trạng thái sẽ được đồng bộ ngay tức thì tới thiết bị của khách</p>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
@@ -1280,7 +1319,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <div className="bg-white rounded-2xl p-12 text-center text-slate-400">
                 <ShoppingBag className="w-12 h-12 mx-auto mb-2 text-slate-300" />
                 <h4 className="font-bold text-slate-700">Chưa có đơn hàng nào</h4>
-                <p className="text-xs">Khi khách đặt hàng online hoặc chuyển tiền VietQR, đơn sẽ hiện ở đây ngay lập tức.</p>
+                <p className="text-xs mt-0.5">Khi khách đặt hàng online hoặc chuyển tiền VietQR, đơn sẽ hiện ở đây ngay lập tức.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

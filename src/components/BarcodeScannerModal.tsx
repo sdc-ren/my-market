@@ -165,7 +165,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm">Quét Mã Vạch Thông Minh</h3>
-              <p className="text-[11px] text-slate-400">Nhận diện EAN-13, QR Code bao bì</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">Nhận diện EAN-13, QR Code bao bì</p>
             </div>
           </div>
           <button

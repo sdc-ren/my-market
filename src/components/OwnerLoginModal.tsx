@@ -85,7 +85,7 @@ export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm">Xác Thực Quản Lý</h3>
-              <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
+              <p className="mt-0.5 text-[10px] text-slate-400 truncate max-w-[200px]">
                 {storeName} • Khu vực riêng cho chủ tiệm
               </p>
             </div>

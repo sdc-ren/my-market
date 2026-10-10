@@ -45,7 +45,7 @@ function Section({
         </div>
         <div>
           <h3 className="text-sm font-extrabold text-slate-900">{title}</h3>
-          <p className="text-[11px] text-slate-500">{desc}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{desc}</p>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
@@ -125,7 +125,7 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-black text-slate-900">Cấu hình cửa hàng</h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 mt-0.5">
             Tên, logo và các thông tin hiển thị trên website & mã VietQR.
           </p>
         </div>
