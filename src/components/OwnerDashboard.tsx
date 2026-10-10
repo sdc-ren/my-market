@@ -13,6 +13,7 @@ import {
   Calendar,
   CalendarDays,
   LayoutDashboard,
+  History,
   CheckCircle2,
   DollarSign,
   Plus,
@@ -960,6 +961,17 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         <td className="py-2.5 px-3 text-slate-500">{tx.note || '-'}</td>
                       </tr>
                     ))}
+                    {transactions.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-10 px-4 text-center">
+                          <History className="w-11 h-11 mx-auto mb-2 text-slate-300" />
+                          <h4 className="font-bold text-slate-700">Chưa có giao dịch nào</h4>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Các lần nhập kho, xuất kho và bán hàng sẽ được ghi lại ở đây.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
