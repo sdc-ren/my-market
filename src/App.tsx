@@ -54,13 +54,19 @@ export default function App() {
       return 'customer';
     }
   });
-  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem('taphoa_owner_auth') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState<boolean>(false);
+
+  // Xác thực phiên quản lý với server khi tải app (cookie HttpOnly là nguồn chuẩn)
+  useEffect(() => {
+    apiClient.checkSession().then((ok) => {
+      setIsOwnerAuthenticated(ok);
+      if (!ok) {
+        try {
+          sessionStorage.removeItem('taphoa_owner_auth');
+        } catch {}
+      }
+    });
+  }, []);
   const [isOwnerLoginOpen, setIsOwnerLoginOpen] = useState<boolean>(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['all']);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -616,6 +622,7 @@ export default function App() {
     try {
       sessionStorage.removeItem('taphoa_owner_auth');
     } catch {}
+    apiClient.logout();
     setMode('customer');
   };
 
@@ -923,7 +930,7 @@ export default function App() {
         isOpen={isOwnerLoginOpen}
         onClose={() => setIsOwnerLoginOpen(false)}
         onSuccess={handleOwnerLoginSuccess}
-        expectedPin={settings.ownerPin || '1234'}
+        onVerify={apiClient.login}
         storeName={settings.storeName}
       />
     </div>

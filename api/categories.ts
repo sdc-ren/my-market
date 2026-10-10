@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db, schema } from './_db.js';
+import { requireAuth } from './_auth.js';
 import { STORE_CATEGORIES } from '../src/data/mockData.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -20,9 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ---------------------------------------------------------------------------
-  // POST /api/categories — upsert danh mục
+  // POST /api/categories — upsert danh mục (chỉ quản lý đã đăng nhập)
   // ---------------------------------------------------------------------------
   if (req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const cat = req.body;
       if (db) {

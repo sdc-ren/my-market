@@ -1,12 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../_db.js';
+import { requireAuth } from '../_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
-  // DELETE /api/products/:id — xóa sản phẩm
+  // DELETE /api/products/:id — xóa sản phẩm (chỉ quản lý đã đăng nhập)
   // ---------------------------------------------------------------------------
   if (req.method === 'DELETE') {
+    if (!requireAuth(req, res)) return;
     try {
       const { id } = req.query;
       const productId = Array.isArray(id) ? id[0] : id;

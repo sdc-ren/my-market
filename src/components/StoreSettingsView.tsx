@@ -111,6 +111,8 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
     const ok = await onSave({ ...form, storeName: form.storeName.trim() || settings.storeName });
     setSaving(false);
     if (ok) {
+      // Xoá PIN vừa nhập khỏi form sau khi lưu (không giữ plaintext trong state)
+      setForm((prev) => ({ ...prev, ownerPin: '' }));
       setSavedTick(true);
       window.setTimeout(() => setSavedTick(false), 2500);
     } else {
@@ -386,16 +388,17 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
       <Section
         icon={<Lock className="w-4 h-4" />}
         title="Bảo mật quản lý"
-        desc="Mã PIN để mở khu vực quản lý."
+        desc="Mã PIN để mở khu vực quản lý. PIN được mã hoá ở server, không hiển thị lại."
       >
         <div>
-          <label className={labelCls}>Mã PIN quản lý (4–8 ký tự)</label>
+          <label className={labelCls}>Đổi mã PIN mới (4–8 số)</label>
           <input
             className={inputCls}
             value={form.ownerPin || ''}
             onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 8))}
-            placeholder="VD: 1234"
+            placeholder="Để trống nếu giữ PIN hiện tại"
             inputMode="numeric"
+            autoComplete="off"
           />
         </div>
         <div className="flex items-end">

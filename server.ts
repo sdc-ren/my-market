@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './src/db';
 import * as schema from './src/db/schema';
+import { requireAuth, hashPin, verifyPin, isHashedPin, buildSessionCookie, buildClearSessionCookie, isAuthenticated, checkRateLimit, resetRateLimit, getClientIp } from './api/_auth.js';
 import { eq, desc } from 'drizzle-orm';
 import { STORE_CATEGORIES, INITIAL_PRODUCTS, INITIAL_DEBTORS, DEFAULT_STORE_SETTINGS } from './src/data/mockData';
 
@@ -33,6 +34,47 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// --- AUTH (server-side PIN) ---
+app.post('/api/auth/login', async (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(ip)) {
+    res.status(429).json({ error: 'Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.' });
+    return;
+  }
+  const pin = (req.body as any)?.pin;
+  if (!pin || typeof pin !== 'string') {
+    res.status(400).json({ error: 'Thiếu mã PIN' });
+    return;
+  }
+  try {
+    const rows = await db.select().from(schema.storeSettings).limit(1);
+    const stored = (rows[0] as any)?.ownerPin || '';
+    const ok = await verifyPin(pin, stored);
+    if (!ok) {
+      res.status(401).json({ error: 'Sai mã PIN' });
+      return;
+    }
+    if (stored && !isHashedPin(stored)) {
+      const hashed = await hashPin(pin);
+      await db.update(schema.storeSettings).set({ ownerPin: hashed, updatedAt: new Date() }).where(eq(schema.storeSettings.id, 'default'));
+    }
+    resetRateLimit(ip);
+    res.setHeader('Set-Cookie', buildSessionCookie());
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+app.post('/api/auth/logout', (_req: Request, res: Response) => {
+  res.setHeader('Set-Cookie', buildClearSessionCookie());
+  res.json({ success: true });
+});
+
+app.get('/api/auth/session', (req: Request, res: Response) => {
+  res.json({ authenticated: isAuthenticated(req) });
+});
+
 // =============================================================================
 // 1. PRODUCTS API
 // =============================================================================
@@ -50,6 +92,7 @@ app.get('/api/products', async (req: Request, res: Response) => {
 });
 
 app.post('/api/products', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const product = req.body;
     if (!product.id || !product.barcode || !product.name) {
@@ -111,6 +154,7 @@ app.post('/api/products', async (req: Request, res: Response) => {
 });
 
 app.delete('/api/products/:id', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const { id } = req.params;
     if (db) {
@@ -140,6 +184,7 @@ app.get('/api/categories', async (req: Request, res: Response) => {
 });
 
 app.post('/api/categories', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const cat = req.body;
     if (db) {
@@ -173,6 +218,7 @@ app.post('/api/categories', async (req: Request, res: Response) => {
 // 3. DEBTORS & DEBT LEDGER API (SỔ GHI NỢ)
 // =============================================================================
 app.get('/api/debtors', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     if (db) {
       const debtorsList = await db
@@ -244,6 +290,7 @@ app.get('/api/debtors', async (req: Request, res: Response) => {
 });
 
 app.post('/api/debtors', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const debtor = req.body;
     if (!debtor.id || !debtor.name) {
@@ -286,6 +333,7 @@ app.post('/api/debtors', async (req: Request, res: Response) => {
 });
 
 app.delete('/api/debtors/:id', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const { id } = req.params;
     if (db) {
@@ -299,6 +347,7 @@ app.delete('/api/debtors/:id', async (req: Request, res: Response) => {
 });
 
 app.post('/api/debt-transactions', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const { transaction, items, newTotalDebt, newStatus } = req.body;
     if (!transaction || !transaction.id || !transaction.debtorId) {
@@ -361,6 +410,7 @@ app.post('/api/debt-transactions', async (req: Request, res: Response) => {
 // 4. ORDERS API
 // =============================================================================
 app.get('/api/orders', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     if (db) {
       const ordersList = await db.select().from(schema.orders).orderBy(desc(schema.orders.createdAt));
@@ -412,6 +462,20 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     const order = req.body;
     if (!order.id || !order.code) {
       return res.status(400).json({ error: 'Missing order id or code' });
+    }
+
+    // Đơn MỚI: khách tạo public nhưng ép PENDING. Cập nhật đơn CŨ: cần đăng nhập.
+    let isNewOrder = true;
+    const existing = await db
+      .select({ id: schema.orders.id })
+      .from(schema.orders)
+      .where(eq(schema.orders.id, order.id))
+      .limit(1);
+    isNewOrder = existing.length === 0;
+    if (!isNewOrder && !requireAuth(req, res)) return;
+    if (isNewOrder) {
+      order.orderStatus = 'PENDING';
+      order.paymentStatus = 'PENDING';
     }
 
     if (db) {
@@ -483,10 +547,13 @@ app.get('/api/settings', async (req: Request, res: Response) => {
     if (db) {
       const result = await db.select().from(schema.storeSettings).limit(1);
       if (result.length > 0) {
-        return res.json(result[0]);
+        // KHÔNG bao giờ trả ownerPin ra ngoài
+        const { ownerPin: _pin, ...publicSettings } = result[0] as any;
+        return res.json(publicSettings);
       }
     }
-    return res.json(DEFAULT_STORE_SETTINGS);
+    const { ownerPin: _pin2, ...publicDefaults } = DEFAULT_STORE_SETTINGS as any;
+    return res.json(publicDefaults);
   } catch (error: any) {
     console.error('Error fetching settings:', error);
     return res.json(DEFAULT_STORE_SETTINGS);
@@ -494,46 +561,47 @@ app.get('/api/settings', async (req: Request, res: Response) => {
 });
 
 app.post('/api/settings', async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
   try {
     const s = req.body;
+    // ownerPin nếu có thì hash ở server; không gửi thì giữ nguyên PIN cũ
+    let ownerPinUpdate: string | undefined;
+    if (s.ownerPin && typeof s.ownerPin === 'string' && s.ownerPin.trim() !== '') {
+      ownerPinUpdate = await hashPin(s.ownerPin.trim());
+    }
     if (db) {
+      // Merge với giá trị hiện tại để update thiếu field không làm lỗi NOT NULL
+      const cur = (await db.select().from(schema.storeSettings).limit(1))[0] as any;
+      const merged = {
+        storeName: s.storeName ?? cur?.storeName ?? 'Tạp Hóa',
+        phone: s.phone ?? cur?.phone ?? '',
+        address: s.address ?? cur?.address ?? '',
+        bankId: s.bankId ?? cur?.bankId ?? 'MB',
+        bankAccount: s.bankAccount ?? cur?.bankAccount ?? '',
+        bankAccountName: s.bankAccountName ?? cur?.bankAccountName ?? '',
+        qrTemplate: s.qrTemplate ?? cur?.qrTemplate ?? 'compact2',
+        lowStockThreshold: s.lowStockThreshold ?? cur?.lowStockThreshold ?? 5,
+        expiryWarningDays: s.expiryWarningDays ?? cur?.expiryWarningDays ?? 30,
+        logoUrl: s.logoUrl ?? cur?.logoUrl ?? '',
+        businessHours: s.businessHours ?? cur?.businessHours ?? [],
+      };
       await db
         .insert(schema.storeSettings)
         .values({
           id: 'default',
-          storeName: s.storeName,
-          phone: s.phone,
-          address: s.address,
-          bankId: s.bankId || 'MB',
-          bankAccount: s.bankAccount || '',
-          bankAccountName: s.bankAccountName || '',
-          qrTemplate: s.qrTemplate || 'compact2',
-          lowStockThreshold: s.lowStockThreshold || 5,
-          expiryWarningDays: s.expiryWarningDays || 30,
-          ownerPin: s.ownerPin || '1234',
-          logoUrl: s.logoUrl || '',
-          businessHours: s.businessHours || [],
+          ...merged,
+          ...(ownerPinUpdate ? { ownerPin: ownerPinUpdate } : {}),
         })
         .onConflictDoUpdate({
           target: schema.storeSettings.id,
           set: {
-            storeName: s.storeName,
-            phone: s.phone,
-            address: s.address,
-            bankId: s.bankId,
-            bankAccount: s.bankAccount,
-            bankAccountName: s.bankAccountName,
-            qrTemplate: s.qrTemplate,
-            lowStockThreshold: s.lowStockThreshold,
-            expiryWarningDays: s.expiryWarningDays,
-            ownerPin: s.ownerPin,
-            logoUrl: s.logoUrl || '',
-            businessHours: s.businessHours || [],
+            ...merged,
+            ...(ownerPinUpdate ? { ownerPin: ownerPinUpdate } : {}),
             updatedAt: new Date(),
           },
         });
     }
-    return res.json({ success: true, settings: s });
+    return res.json({ success: true });
   } catch (error: any) {
     console.error('Error saving settings:', error);
     return res.status(500).json({ error: error.message });

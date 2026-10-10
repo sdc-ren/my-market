@@ -4,11 +4,16 @@
 // =============================================================================
 import { Debtor, DebtTransaction, DebtTransactionItem, Product, Order, Category, StoreSettings } from '../types';
 
+// Mọi request đều gửi kèm cookie session (HttpOnly) để API xác thực quản lý.
+function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  return fetch(input, { credentials: 'include', ...init });
+}
+
 export const apiClient = {
   // Check backend health & database connection
   async checkHealth(): Promise<{ status: string; databaseConnected: boolean }> {
     try {
-      const res = await fetch('/api/health');
+      const res = await apiFetch('/api/health');
       if (!res.ok) throw new Error('Health check failed');
       return await res.json();
     } catch {
@@ -19,7 +24,7 @@ export const apiClient = {
   // 1. PRODUCTS
   async getProducts(): Promise<Product[] | null> {
     try {
-      const res = await fetch('/api/products');
+      const res = await apiFetch('/api/products');
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -30,7 +35,7 @@ export const apiClient = {
 
   async saveProduct(product: Product): Promise<boolean> {
     try {
-      const res = await fetch('/api/products', {
+      const res = await apiFetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(product),
@@ -44,7 +49,7 @@ export const apiClient = {
 
   async deleteProduct(id: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/products/${id}`, { method: 'DELETE' });
       return res.ok;
     } catch (err) {
       console.warn('Backend API deleteProduct error:', err);
@@ -55,7 +60,7 @@ export const apiClient = {
   // 2. CATEGORIES
   async getCategories(): Promise<Category[] | null> {
     try {
-      const res = await fetch('/api/categories');
+      const res = await apiFetch('/api/categories');
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -66,7 +71,7 @@ export const apiClient = {
 
   async saveCategory(cat: Category): Promise<boolean> {
     try {
-      const res = await fetch('/api/categories', {
+      const res = await apiFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cat),
@@ -81,7 +86,7 @@ export const apiClient = {
   // 3. DEBTORS & DEBT TRANSACTIONS (SỔ GHI NỢ)
   async getDebtors(): Promise<Debtor[] | null> {
     try {
-      const res = await fetch('/api/debtors');
+      const res = await apiFetch('/api/debtors');
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -92,7 +97,7 @@ export const apiClient = {
 
   async saveDebtor(debtor: Debtor): Promise<boolean> {
     try {
-      const res = await fetch('/api/debtors', {
+      const res = await apiFetch('/api/debtors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(debtor),
@@ -106,7 +111,7 @@ export const apiClient = {
 
   async deleteDebtor(id: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/debtors/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/debtors/${id}`, { method: 'DELETE' });
       return res.ok;
     } catch (err) {
       console.warn('Backend API deleteDebtor error:', err);
@@ -121,7 +126,7 @@ export const apiClient = {
     newStatus?: 'ACTIVE' | 'SETTLED'
   ): Promise<boolean> {
     try {
-      const res = await fetch('/api/debt-transactions', {
+      const res = await apiFetch('/api/debt-transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,7 +146,7 @@ export const apiClient = {
   // 4. ORDERS
   async getOrders(): Promise<Order[] | null> {
     try {
-      const res = await fetch('/api/orders');
+      const res = await apiFetch('/api/orders');
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -152,7 +157,7 @@ export const apiClient = {
 
   async saveOrder(order: Order): Promise<boolean> {
     try {
-      const res = await fetch('/api/orders', {
+      const res = await apiFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(order),
@@ -167,7 +172,7 @@ export const apiClient = {
   // 5. SETTINGS
   async getSettings(): Promise<StoreSettings | null> {
     try {
-      const res = await fetch('/api/settings');
+      const res = await apiFetch('/api/settings');
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -178,7 +183,7 @@ export const apiClient = {
 
   async saveSettings(settings: StoreSettings): Promise<boolean> {
     try {
-      const res = await fetch('/api/settings', {
+      const res = await apiFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
@@ -186,6 +191,41 @@ export const apiClient = {
       return res.ok;
     } catch (err) {
       console.warn('Backend API saveSettings error:', err);
+      return false;
+    }
+  },
+
+  // 6. AUTH — đăng nhập quản lý bằng PIN (xác thực ở server)
+  async login(pin: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      if (res.ok) return { ok: true };
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: data.error || 'Đăng nhập thất bại' };
+    } catch {
+      return { ok: false, error: 'Không kết nối được server' };
+    }
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      /* bỏ qua */
+    }
+  },
+
+  async checkSession(): Promise<boolean> {
+    try {
+      const res = await apiFetch('/api/auth/session');
+      if (!res.ok) return false;
+      const data = await res.json();
+      return !!data.authenticated;
+    } catch {
       return false;
     }
   },

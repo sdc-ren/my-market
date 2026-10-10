@@ -1,20 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db, schema } from './_db.js';
+import { requireAuth, hashPin } from './_auth.js';
 import { DEFAULT_STORE_SETTINGS } from '../src/data/mockData.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
-  // GET /api/settings — cấu hình cửa hàng
+  // GET /api/settings — cấu hình cửa hàng (KHÔNG bao giờ trả ownerPin)
   // ---------------------------------------------------------------------------
   if (req.method === 'GET') {
     try {
       if (db) {
         const result = await db.select().from(schema.storeSettings).limit(1);
         if (result.length > 0) {
-          return res.json(result[0]);
+          const { ownerPin: _pin, ...publicSettings } = result[0];
+          return res.json(publicSettings);
         }
       }
-      return res.json(DEFAULT_STORE_SETTINGS);
+      const { ownerPin: _pin, ...publicDefaults } = DEFAULT_STORE_SETTINGS as any;
+      return res.json(publicDefaults);
     } catch (error: any) {
       console.error('Error fetching settings:', error);
       return res.json(DEFAULT_STORE_SETTINGS);
@@ -22,49 +25,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ---------------------------------------------------------------------------
-  // POST /api/settings — lưu cấu hình cửa hàng (gồm logoUrl)
+  // POST /api/settings — lưu cấu hình (chỉ quản lý đã đăng nhập).
+  // ownerPin nếu có thì hash ở server; không gửi PIN thì giữ nguyên PIN cũ.
   // ---------------------------------------------------------------------------
   if (req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const s = req.body;
+      // ownerPin nếu có thì hash ở server; không gửi thì giữ nguyên PIN cũ
+      let ownerPinUpdate: string | undefined;
+      if (s.ownerPin && typeof s.ownerPin === 'string' && s.ownerPin.trim() !== '') {
+        ownerPinUpdate = await hashPin(s.ownerPin.trim());
+      }
       if (db) {
+        // Merge với giá trị hiện tại để update thiếu field không làm lỗi NOT NULL
+        const cur = (await db.select().from(schema.storeSettings).limit(1))[0] as any;
+        const merged = {
+          storeName: s.storeName ?? cur?.storeName ?? 'Tạp Hóa',
+          phone: s.phone ?? cur?.phone ?? '',
+          address: s.address ?? cur?.address ?? '',
+          bankId: s.bankId ?? cur?.bankId ?? 'MB',
+          bankAccount: s.bankAccount ?? cur?.bankAccount ?? '',
+          bankAccountName: s.bankAccountName ?? cur?.bankAccountName ?? '',
+          qrTemplate: s.qrTemplate ?? cur?.qrTemplate ?? 'compact2',
+          lowStockThreshold: s.lowStockThreshold ?? cur?.lowStockThreshold ?? 5,
+          expiryWarningDays: s.expiryWarningDays ?? cur?.expiryWarningDays ?? 30,
+          logoUrl: s.logoUrl ?? cur?.logoUrl ?? '',
+          businessHours: s.businessHours ?? cur?.businessHours ?? [],
+        };
         await db
           .insert(schema.storeSettings)
           .values({
             id: 'default',
-            storeName: s.storeName,
-            phone: s.phone,
-            address: s.address,
-            bankId: s.bankId || 'MB',
-            bankAccount: s.bankAccount || '',
-            bankAccountName: s.bankAccountName || '',
-            qrTemplate: s.qrTemplate || 'compact2',
-            lowStockThreshold: s.lowStockThreshold || 5,
-            expiryWarningDays: s.expiryWarningDays || 30,
-            ownerPin: s.ownerPin || '1234',
-            logoUrl: s.logoUrl || '',
-            businessHours: s.businessHours || [],
+            ...merged,
+            ...(ownerPinUpdate ? { ownerPin: ownerPinUpdate } : {}),
           })
           .onConflictDoUpdate({
             target: schema.storeSettings.id,
             set: {
-              storeName: s.storeName,
-              phone: s.phone,
-              address: s.address,
-              bankId: s.bankId,
-              bankAccount: s.bankAccount,
-              bankAccountName: s.bankAccountName,
-              qrTemplate: s.qrTemplate,
-              lowStockThreshold: s.lowStockThreshold,
-              expiryWarningDays: s.expiryWarningDays,
-              ownerPin: s.ownerPin,
-              logoUrl: s.logoUrl || '',
-              businessHours: s.businessHours || [],
+              ...merged,
+              ...(ownerPinUpdate ? { ownerPin: ownerPinUpdate } : {}),
               updatedAt: new Date(),
             },
           });
       }
-      return res.json({ success: true, settings: s });
+      const { ownerPin: _pin2, ...echoSettings } = s;
+      return res.json({ success: true, settings: echoSettings });
     } catch (error: any) {
       console.error('Error saving settings:', error);
       return res.status(500).json({ error: error.message });

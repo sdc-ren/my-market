@@ -1,12 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { desc, eq } from 'drizzle-orm';
 import { db, schema } from './_db.js';
+import { requireAuth } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
-  // GET /api/orders — danh sách đơn hàng (kèm items)
+  // GET /api/orders — danh sách đơn hàng (riêng tư: chỉ quản lý)
   // ---------------------------------------------------------------------------
   if (req.method === 'GET') {
+    if (!requireAuth(req, res)) return;
     try {
       if (db) {
         const ordersList = await db.select().from(schema.orders).orderBy(desc(schema.orders.createdAt));
@@ -55,12 +57,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ---------------------------------------------------------------------------
   // POST /api/orders — upsert đơn hàng (idempotent: xóa items cũ rồi insert lại)
+  // - Đơn MỚI: khách được tạo public, nhưng ép orderStatus=PENDING,
+  //   paymentStatus=PENDING để chủ shop duyệt sau.
+  // - Cập nhật đơn CŨ (đổi trạng thái/thanh toán): chỉ quản lý đã đăng nhập.
   // ---------------------------------------------------------------------------
   if (req.method === 'POST') {
     try {
       const order = req.body;
       if (!order.id || !order.code) {
         return res.status(400).json({ error: 'Missing order id or code' });
+      }
+
+      let isNewOrder = true;
+      if (db) {
+        const existing = await db
+          .select({ id: schema.orders.id })
+          .from(schema.orders)
+          .where(eq(schema.orders.id, order.id))
+          .limit(1);
+        isNewOrder = existing.length === 0;
+      }
+      if (!isNewOrder && !requireAuth(req, res)) return;
+      if (isNewOrder) {
+        order.orderStatus = 'PENDING';
+        order.paymentStatus = 'PENDING';
       }
 
       if (db) {

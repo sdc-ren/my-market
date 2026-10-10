@@ -1,12 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { desc } from 'drizzle-orm';
 import { db, schema } from './_db.js';
+import { requireAuth } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
   // GET /api/debtors — sổ ghi nợ (kèm transactions + items)
   // ---------------------------------------------------------------------------
   if (req.method === 'GET') {
+    if (!requireAuth(req, res)) return;
     try {
       if (db) {
         const debtorsList = await db
@@ -81,6 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST /api/debtors — upsert khách nợ
   // ---------------------------------------------------------------------------
   if (req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const debtor = req.body;
       if (!debtor.id || !debtor.name) {

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { eq } from 'drizzle-orm';
 import { db, schema } from './_db.js';
+import { requireAuth } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
@@ -8,6 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // insert transaction + items, rồi cập nhật tổng nợ & trạng thái của khách.
   // ---------------------------------------------------------------------------
   if (req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const { transaction, items, newTotalDebt, newStatus } = req.body;
       if (!transaction || !transaction.id || !transaction.debtorId) {

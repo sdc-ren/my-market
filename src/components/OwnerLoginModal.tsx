@@ -1,45 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, ShieldCheck, X, Delete, KeyRound, AlertCircle, Sparkles } from 'lucide-react';
+import { Lock, ShieldCheck, X, Delete, KeyRound, AlertCircle, Check } from 'lucide-react';
 
 interface OwnerLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  expectedPin?: string;
+  /** Xác thực PIN ở server. Trả về { ok, error? }. */
+  onVerify: (pin: string) => Promise<{ ok: boolean; error?: string }>;
   storeName?: string;
 }
+
+const MAX_PIN_LEN = 8;
+const MIN_PIN_LEN = 4;
 
 export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  expectedPin = '1234',
+  onVerify,
   storeName = 'Tiệm Tạp Hóa',
 }) => {
   const [pin, setPin] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setPin('');
       setError(null);
       setIsShaking(false);
+      setVerifying(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleKeyPress = (num: string) => {
-    if (pin.length < 6) {
-      const nextPin = pin + num;
-      setPin(nextPin);
+    if (verifying) return;
+    if (pin.length < MAX_PIN_LEN) {
+      setPin(pin + num);
       setError(null);
-
-      // Auto submit if reached 4 digits
-      if (nextPin.length === 4) {
-        verifyPin(nextPin);
-      }
     }
   };
 
@@ -53,21 +54,24 @@ export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
     setError(null);
   };
 
-  const verifyPin = (codeToTest: string) => {
-    if (codeToTest === expectedPin) {
-      setError(null);
-      onSuccess();
-    } else {
-      setIsShaking(true);
-      setError('Mã PIN không đúng. Vui lòng thử lại!');
-      setTimeout(() => setIsShaking(false), 500);
-      setPin('');
+  const verifyPin = async () => {
+    const codeToTest = pin;
+    if (codeToTest.length < MIN_PIN_LEN || verifying) return;
+    setVerifying(true);
+    try {
+      const res = await onVerify(codeToTest);
+      if (res.ok) {
+        setError(null);
+        onSuccess();
+      } else {
+        setIsShaking(true);
+        setError(res.error || 'Mã PIN không đúng. Vui lòng thử lại!');
+        setTimeout(() => setIsShaking(false), 500);
+        setPin('');
+      }
+    } finally {
+      setVerifying(false);
     }
-  };
-
-  const handleQuickFillDefault = () => {
-    setPin(expectedPin);
-    verifyPin(expectedPin);
   };
 
   return (
@@ -111,14 +115,14 @@ export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
             Vui lòng nhập mã PIN quản lý để truy cập doanh thu, nhập xuất kho và đơn hàng.
           </p>
 
-          {/* PIN Indicators */}
-          <div className="flex items-center justify-center gap-3 my-5">
-            {[0, 1, 2, 3].map((index) => {
+          {/* PIN Indicators (4–8 số) */}
+          <div className="flex items-center justify-center gap-2 my-5">
+            {Array.from({ length: Math.max(MIN_PIN_LEN, Math.min(pin.length, MAX_PIN_LEN)) }).map((_, index) => {
               const isFilled = pin.length > index;
               return (
                 <div
                   key={index}
-                  className={`w-10 h-12 rounded-xl border-2 flex items-center justify-center text-lg font-bold transition-all ${
+                  className={`w-8 h-10 rounded-xl border-2 flex items-center justify-center text-lg font-bold transition-all ${
                     isFilled
                       ? 'border-emerald-500 bg-emerald-50/80 text-emerald-800 scale-105 shadow-xs'
                       : 'border-slate-200 bg-slate-50 text-slate-400'
@@ -145,7 +149,8 @@ export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
                 key={num}
                 type="button"
                 onClick={() => handleKeyPress(num)}
-                className="h-12 rounded-2xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-base font-extrabold text-slate-800 flex items-center justify-center transition active:scale-95 shadow-2xs"
+                disabled={verifying}
+                className="h-12 rounded-2xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-base font-extrabold text-slate-800 flex items-center justify-center transition active:scale-95 shadow-2xs disabled:opacity-50"
               >
                 {num}
               </button>
@@ -153,38 +158,49 @@ export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
             <button
               type="button"
               onClick={handleClear}
-              className="h-12 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs font-semibold flex items-center justify-center transition active:scale-95"
+              disabled={verifying}
+              className="h-12 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs font-semibold flex items-center justify-center transition active:scale-95 disabled:opacity-50"
             >
               Xóa
             </button>
             <button
               type="button"
               onClick={() => handleKeyPress('0')}
-              className="h-12 rounded-2xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-base font-extrabold text-slate-800 flex items-center justify-center transition active:scale-95 shadow-2xs"
+              disabled={verifying}
+              className="h-12 rounded-2xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-base font-extrabold text-slate-800 flex items-center justify-center transition active:scale-95 shadow-2xs disabled:opacity-50"
             >
               0
             </button>
             <button
               type="button"
               onClick={handleDelete}
-              className="h-12 rounded-2xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 border border-slate-200/80 text-slate-600 flex items-center justify-center transition active:scale-95"
+              disabled={verifying}
+              className="h-12 rounded-2xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 border border-slate-200/80 text-slate-600 flex items-center justify-center transition active:scale-95 disabled:opacity-50"
               aria-label="Xóa 1 số"
             >
               <Delete className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Quick Demo Fill Helper */}
-          <div className="mt-4 pt-3 border-t border-slate-100 w-full flex flex-col items-center">
-            <button
-              type="button"
-              onClick={handleQuickFillDefault}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200 transition"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Điền thử mã PIN mặc định: {expectedPin}</span>
-            </button>
-          </div>
+          {/* Confirm */}
+          <button
+            type="button"
+            onClick={verifyPin}
+            disabled={pin.length < MIN_PIN_LEN || verifying}
+            className="mt-4 w-full max-w-[240px] h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95"
+          >
+            {verifying ? (
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+            {verifying ? 'Đang kiểm tra…' : 'Xác nhận'}
+          </button>
+
+          <p className="mt-3 text-[10px] text-slate-400 flex items-center gap-1">
+            <KeyRound className="w-3 h-3" />
+            Nhập sai 5 lần sẽ bị khoá 15 phút
+          </p>
         </div>
       </div>
     </div>

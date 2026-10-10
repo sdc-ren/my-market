@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db, schema } from './_db.js';
+import { requireAuth } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
-  // GET /api/products — danh sách sản phẩm
+  // GET /api/products — danh sách sản phẩm (public cho trang bán hàng)
   // ---------------------------------------------------------------------------
   if (req.method === 'GET') {
     try {
@@ -19,9 +20,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ---------------------------------------------------------------------------
-  // POST /api/products — upsert sản phẩm
+  // POST /api/products — upsert sản phẩm (chỉ quản lý đã đăng nhập)
   // ---------------------------------------------------------------------------
   if (req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const product = req.body;
       if (!product.id || !product.barcode || !product.name) {
