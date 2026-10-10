@@ -644,11 +644,11 @@ export default function App() {
                     <Sparkles className="w-3 h-3 text-amber-300 shrink-0" />
                     <span>Giao hàng nhanh trong 15 phút quanh khu vực</span>
                   </div>
-                  <h2 className="text-lg sm:text-2xl lg:text-3xl font-black tracking-tight leading-snug">
-                    Tạp Hoá Bách Hoá Gần Nhà - Đầy Đủ & Tiện Lợi
+                  <h2 className="text-lg sm:text-2xl lg:text-3xl font-black tracking-tight leading-snug text-balance">
+                    Tạp Hoá Cô Phước – Đầy Đủ & Tiện Lợi
                   </h2>
-                  <p className="text-xs sm:text-sm text-emerald-100 mt-0.5 max-w-xl leading-relaxed hidden xs:block">
-                    Chọn bánh kẹo, nước giải khát, gia vị và đồ hộp tươi mới mỗi ngày. Thanh toán tự động qua mã VietQR an toàn, tiện lợi.
+                  <p className="text-xs sm:text-sm text-emerald-100 mt-0.5 max-w-xl leading-relaxed hidden xs:block text-pretty">
+                    Bánh kẹo, nước giải khát, gia vị và đồ hộp tươi mới mỗi ngày. Thanh toán VietQR nhanh gọn, an toàn.
                   </p>
                 </div>
 

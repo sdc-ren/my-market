@@ -1,4 +1,4 @@
-import { Product, Category, StoreSettings } from '../types';
+import { Product, Category, StoreSettings } from '../types.js';
 
 export const STORE_CATEGORIES: Category[] = [
   { id: 'all', name: 'Tất cả', icon: 'Store', color: 'bg-emerald-500' },

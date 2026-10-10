@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, schema } from './_db';
-import { STORE_CATEGORIES } from '../src/data/mockData';
+import { db, schema } from './_db.js';
+import { STORE_CATEGORIES } from '../src/data/mockData.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------

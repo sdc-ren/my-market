@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 
-// Ảnh mặc định của hệ thống — dùng khi sản phẩm chưa có ảnh hoặc ảnh bị lỗi.
-// SVG tự chứa (data URI) nên luôn hiển thị được, không phụ thuộc mạng.
-const DEFAULT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+// Ảnh mặc định của hệ thống — logo Tạp Hoá Cô Phước.
+// Dùng khi sản phẩm chưa có ảnh hoặc ảnh bị lỗi. Giữ SVG inline làm
+// fallback cuối cùng nếu file PNG không tải được.
+export const DEFAULT_PRODUCT_IMAGE = '/default-product.png';
+
+const FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ecfdf5"/>
@@ -19,8 +22,8 @@ const DEFAULT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height=
   <text x="200" y="340" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#059669">chưa có ảnh sản phẩm</text>
 </svg>`;
 
-export const DEFAULT_PRODUCT_IMAGE =
-  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(DEFAULT_SVG);
+export const DEFAULT_PRODUCT_IMAGE_FALLBACK =
+  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(FALLBACK_SVG);
 
 interface ProductImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src?: string | null;
@@ -35,14 +38,22 @@ export const ProductImage: React.FC<ProductImageProps> = ({
   alt = 'Sản phẩm',
   ...rest
 }) => {
-  const [failed, setFailed] = useState(false);
-  const finalSrc = !src || failed ? DEFAULT_PRODUCT_IMAGE : src;
+  const [stage, setStage] = useState(0);
+  // stage 0: ảnh sản phẩm (hoặc logo mặc định nếu chưa có ảnh)
+  // stage 1: logo mặc định (khi ảnh sản phẩm lỗi)
+  // stage 2: SVG inline (khi cả logo PNG cũng lỗi)
+  const finalSrc =
+    stage === 0
+      ? src || DEFAULT_PRODUCT_IMAGE
+      : stage === 1
+        ? DEFAULT_PRODUCT_IMAGE
+        : DEFAULT_PRODUCT_IMAGE_FALLBACK;
   return (
     <img
       src={finalSrc}
       alt={alt}
       {...rest}
-      onError={() => setFailed(true)}
+      onError={() => setStage((s) => Math.min(s + 1, 2))}
     />
   );
 };

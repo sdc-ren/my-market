@@ -9,7 +9,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from '../src/db/schema';
+import * as schema from '../src/db/schema.js';
 
 type Db = PostgresJsDatabase<typeof schema>;
 
