@@ -16,7 +16,7 @@ import {
 
 interface StoreSettingsViewProps {
   settings: StoreSettings;
-  onSave: (s: StoreSettings) => void;
+  onSave: (s: StoreSettings) => Promise<boolean>;
 }
 
 const inputCls =
@@ -53,6 +53,8 @@ function Section({
 export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, onSave }) => {
   const [form, setForm] = useState<StoreSettings>({ ...settings });
   const [savedTick, setSavedTick] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -83,10 +85,18 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    onSave({ ...form, storeName: form.storeName.trim() || settings.storeName });
-    setSavedTick(true);
-    window.setTimeout(() => setSavedTick(false), 2500);
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(false);
+    const ok = await onSave({ ...form, storeName: form.storeName.trim() || settings.storeName });
+    setSaving(false);
+    if (ok) {
+      setSavedTick(true);
+      window.setTimeout(() => setSavedTick(false), 2500);
+    } else {
+      // Server không nhận: báo rõ để user thử lại, tránh tưởng đã lưu.
+      setSaveError(true);
+    }
   };
 
   return (
@@ -99,14 +109,22 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
             Tên, logo và các thông tin hiển thị trên website & mã VietQR.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-xs hover:bg-emerald-700 active:scale-95 transition"
-        >
-          {savedTick ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {savedTick ? 'Đã lưu!' : 'Lưu cấu hình'}
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          {saveError && (
+            <p className="text-[11px] font-semibold text-red-600">
+              Không lưu được lên server — kiểm tra mạng rồi bấm Lưu lại.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-xs hover:bg-emerald-700 active:scale-95 transition disabled:opacity-60"
+          >
+            {savedTick ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Đang lưu...' : savedTick ? 'Đã lưu!' : 'Lưu cấu hình'}
+          </button>
+        </div>
       </div>
 
       {/* 1. Thương hiệu */}

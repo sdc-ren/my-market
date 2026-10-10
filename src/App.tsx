@@ -83,11 +83,17 @@ export default function App() {
     list.forEach((p) => apiClient.saveProduct(p));
   };
 
-  // Settings handlers — lưu local + đẩy lên server
-  const handleUpdateSettings = useCallback((newSettings: StoreSettings) => {
+  // Settings handlers — lưu local + đẩy lên server, trả về true nếu server nhận
+  const handleUpdateSettings = useCallback(async (newSettings: StoreSettings): Promise<boolean> => {
     setSettings(newSettings);
     saveStoredSettings(newSettings);
-    apiClient.saveSettings(newSettings);
+    const ok = await apiClient.saveSettings(newSettings);
+    if (!ok) {
+      // Server không nhận: giữ nguyên UI nhưng localStorage vẫn có bản mới nhất.
+      // Lần tải lại sau server là nguồn chuẩn nên cần báo cho user biết.
+      console.warn('Lưu cấu hình lên server thất bại, chỉ lưu local.');
+    }
+    return ok;
   }, []);
 
   // Category handlers

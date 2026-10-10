@@ -71,7 +71,7 @@ interface OwnerDashboardProps {
   onUpdateProducts: (newProducts: Product[]) => void;
   onUpdateOrders: (newOrders: Order[]) => void;
   onUpdateTransactions: (newTransactions: InventoryTransaction[]) => void;
-  onUpdateSettings: (newSettings: StoreSettings) => void;
+  onUpdateSettings: (newSettings: StoreSettings) => Promise<boolean>;
   onUpdateCategories: (newCategories: Category[]) => void;
   onUpdateDebtors?: (newDebtors: Debtor[]) => void;
   onOpenScanner: (type: 'LOOKUP' | 'STOCK_IN' | 'STOCK_OUT' | 'SALE') => void;
