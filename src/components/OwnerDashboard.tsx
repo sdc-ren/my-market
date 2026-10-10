@@ -10,6 +10,8 @@ import {
   Package,
   AlertTriangle,
   Calendar,
+  CalendarDays,
+  LayoutDashboard,
   CheckCircle2,
   DollarSign,
   Plus,
@@ -97,6 +99,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   onEditProduct,
 }) => {
   const [activeTab, setActiveTab] = useState<'REVENUE' | 'INVENTORY' | 'EXPIRY' | 'ORDERS' | 'CATEGORIES' | 'DEBT' | 'SETTINGS'>('REVENUE');
+  const [revenueSubTab, setRevenueSubTab] = useState<'OVERVIEW' | 'MONTHLY'>('OVERVIEW');
   const [searchStock, setSearchStock] = useState('');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW' | 'OUT'>('ALL');
   const [expiryFilter, setExpiryFilter] = useState<'ALL' | 'CRITICAL' | 'WARNING' | 'EXPIRED'>('ALL');
@@ -658,7 +661,36 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       <div className="w-full p-4 sm:p-6 space-y-6">
         {/* TAB 1: REVENUE */}
         {activeTab === 'REVENUE' && (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="animate-fadeIn">
+            <div className="flex flex-col md:flex-row gap-4 items-start">
+              {/* Sub-tabs doanh thu: cột dọc trái (desktop), hàng ngang (mobile) */}
+              <div className="w-full md:w-44 shrink-0 flex md:flex-col gap-2 overflow-x-auto md:sticky md:top-24">
+                <button
+                  onClick={() => setRevenueSubTab('OVERVIEW')}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                    revenueSubTab === 'OVERVIEW'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 shrink-0" />
+                  Tổng quan
+                </button>
+                <button
+                  onClick={() => setRevenueSubTab('MONTHLY')}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                    revenueSubTab === 'MONTHLY'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+                  }`}
+                >
+                  <CalendarDays className="w-4 h-4 shrink-0" />
+                  Theo tháng
+                </button>
+              </div>
+              <div className="flex-1 min-w-0 w-full space-y-6">
+                {revenueSubTab === 'OVERVIEW' ? (
+                  <>
             {/* 4 Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs">
@@ -771,6 +803,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               </div>
             </div>
 
+                  </>
+                ) : (
+                  <>
             {/* Monthly Revenue Section — số thật từ đơn hàng */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -857,7 +892,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               </div>
             </div>
 
-            {/* Recent Transactions List */}
+                  </>
+                )}
+            {/* Recent Transactions List — thuộc tab Tổng quan */}
+            {revenueSubTab === 'OVERVIEW' && (
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-slate-800">Lịch sử Nhập / Xuất / Bán hàng gần nhất</h3>
@@ -905,6 +943,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+            )}
               </div>
             </div>
           </div>
