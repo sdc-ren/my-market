@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Product } from '../types';
 import { playDingSound } from '../utils/storage';
@@ -38,6 +39,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   }, [initialActionType]);
 
   useEffect(() => {
+    useLockBodyScroll(isOpen);
     if (!isOpen) {
       stopCamera();
       setMatchedProduct(null);

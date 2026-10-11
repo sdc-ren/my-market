@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Lock, ShieldCheck, X, Delete, KeyRound, AlertCircle, Check } from 'lucide-react';
 
 interface OwnerLoginModalProps {
@@ -34,6 +35,7 @@ export const OwnerLoginModal: React.FC<OwnerLoginModalProps> = ({
     }
   }, [isOpen]);
 
+  useLockBodyScroll(isOpen);
   if (!isOpen) return null;
 
   const handleKeyPress = (num: string) => {

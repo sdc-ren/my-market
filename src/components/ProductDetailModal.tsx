@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Product } from '../types';
 import { formatVND, formatDate, getExpiryStatus } from '../utils/vietqr';
 import { X, ShoppingCart, Plus, Minus, Barcode, Calendar, PackageCheck, AlertCircle, Edit3 } from 'lucide-react';
@@ -27,6 +28,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   const [selectedQty, setSelectedQty] = useState<number>(1);
 
+  useLockBodyScroll(isOpen);
   if (!isOpen || !product) return null;
 
   const expiryInfo = getExpiryStatus(product.expiryDate);

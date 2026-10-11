@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Product, Order, InventoryTransaction, StoreSettings, Category, Debtor } from '../types';
 import { formatVND, formatDate, getExpiryStatus } from '../utils/vietqr';
 import { generateInventoryAuditReport, playDingSound } from '../utils/storage';
@@ -124,6 +125,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   // Categories management state
   const [searchCategory, setSearchCategory] = useState('');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  useLockBodyScroll(!!isCategoryModalOpen);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryFormData, setCategoryFormData] = useState({
     id: '',

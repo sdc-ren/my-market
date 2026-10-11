@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import confetti from 'canvas-confetti';
 import { Order, StoreSettings } from '../types';
 import { formatVND, getVietQRUrl } from '../utils/vietqr';
@@ -25,6 +26,7 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isPaidLocal, setIsPaidLocal] = useState<boolean>(false);
 
+  useLockBodyScroll(isOpen);
   if (!isOpen || !order) return null;
 
   const qrUrl = getVietQRUrl(

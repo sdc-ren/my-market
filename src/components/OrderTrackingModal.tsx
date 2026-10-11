@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Order } from '../types';
 import { formatVND, formatDate } from '../utils/vietqr';
 import { X, CheckCircle2, Clock, Package, Truck, Check, AlertCircle, Phone, MapPin } from 'lucide-react';
@@ -24,6 +25,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   order,
   onClose,
 }) => {
+  useLockBodyScroll(isOpen);
   if (!isOpen || !order) return null;
 
   const currentStepIndex = ORDER_STEPS.findIndex((s) => s.key === order.orderStatus);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Product, Category } from '../types';
 import { STORE_CATEGORIES } from '../data/mockData';
 import { X, Barcode, Camera, Save, Image as ImageIcon, MapPin, Calendar, Package, Upload, RefreshCw } from 'lucide-react';
@@ -114,6 +115,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   }, [productToEdit, isOpen]);
 
+  useLockBodyScroll(isOpen);
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {

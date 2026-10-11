@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Product, OrderItem, StoreSettings } from '../types';
 import { formatVND } from '../utils/vietqr';
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, QrCode, Banknote, User, Phone, MapPin, AlertCircle } from 'lucide-react';
@@ -44,6 +45,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
+  useLockBodyScroll(isOpen);
   if (!isOpen) return null;
 
   // Build cart items array

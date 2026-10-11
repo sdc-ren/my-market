@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { AppNotification } from '../types';
 import { formatDate } from '../utils/vietqr';
 import { X, Bell, AlertTriangle, Package, CheckCheck, Clock, ShoppingBag } from 'lucide-react';
@@ -20,6 +21,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   onMarkAllAsRead,
   onSelectNotification,
 }) => {
+  useLockBodyScroll(isOpen);
   if (!isOpen) return null;
 
   return (

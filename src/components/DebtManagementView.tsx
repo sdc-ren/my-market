@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Debtor, DebtTransaction, DebtTransactionItem, Product, StoreSettings } from '../types';
 import { formatVND } from '../utils/vietqr';
 import {
@@ -58,6 +59,7 @@ export const DebtManagementView: React.FC<DebtManagementViewProps> = ({
   const [selectedDebtorForDebt, setSelectedDebtorForDebt] = useState<Debtor | null>(null);
   const [selectedDebtorForPay, setSelectedDebtorForPay] = useState<Debtor | null>(null);
   const [showDbInfoModal, setShowDbInfoModal] = useState(false);
+  useLockBodyScroll(!!(isAddDebtorOpen || selectedDebtorForDebt || selectedDebtorForPay || selectedDebtorForDetail || showDbInfoModal));
 
   // New Debtor Form state
   const [newDebtorData, setNewDebtorData] = useState({
