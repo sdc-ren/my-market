@@ -398,7 +398,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
               <div className="flex items-center justify-between mb-2">
                 <label className="font-bold text-slate-700 block text-xs">
-                  Hình ảnh sản phẩm (Lưu trực tiếp vào Database)
+                  Hình ảnh sản phẩm
                 </label>
                 {isCompressingImg && (
                   <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1 animate-pulse">
@@ -484,7 +484,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                   <p className="text-[10px] text-slate-500">
-                    💡 Ảnh chụp từ điện thoại sẽ được tự động nén dung lượng và lưu an toàn vào PostgreSQL.
+                    💡 Ảnh chụp từ điện thoại sẽ được tự động nén dung lượng trước khi lưu.
                   </p>
                 </div>
               </div>
