@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Product, Category } from '../types';
 import { STORE_CATEGORIES } from '../data/mockData';
-import { X, Barcode, Camera, Save, Image as ImageIcon, MapPin, Calendar, Package, Upload, RefreshCw } from 'lucide-react';
+import { apiClient } from '../utils/apiClient';
+import { X, Barcode, Camera, Save, Image as ImageIcon, Calendar, Package, Upload, RefreshCw } from 'lucide-react';
 import { ProductImage } from './ProductImage';
 
 interface ProductFormModalProps {
@@ -45,8 +46,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isAddingQuickCategory, setIsAddingQuickCategory] = useState(false);
   const [quickCategoryName, setQuickCategoryName] = useState('');
   const [isCompressingImg, setIsCompressingImg] = useState(false);
+  const [isUploadingImg, setIsUploadingImg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload ảnh đã nén lên Supabase Storage, thay base64 bằng public URL.
+  // Upload lỗi thì giữ nguyên base64 (fallback, vẫn lưu được sản phẩm).
+  const uploadImageToStorage = async (dataUrl: string) => {
+    setIsUploadingImg(true);
+    try {
+      const url = await apiClient.uploadImage(dataUrl);
+      if (url) {
+        setFormData((prev) => (prev.image === dataUrl ? { ...prev, image: url } : prev));
+      }
+    } finally {
+      setIsUploadingImg(false);
+    }
+  };
 
   // Nén ảnh trực tiếp trên trình duyệt (giảm dung lượng xuống <150KB, kích thước chuẩn 600x600)
   const processImageFile = (file: File) => {
@@ -82,6 +98,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           // Nén WebP hoặc JPEG chất lượng 0.82
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
           setFormData((prev) => ({ ...prev, image: compressedBase64 }));
+          // Upload lên Supabase Storage, lưu URL thay cho base64
+          uploadImageToStorage(compressedBase64);
         }
         setIsCompressingImg(false);
       };
@@ -408,6 +426,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     Đang tối ưu ảnh...
                   </span>
                 )}
+                {!isCompressingImg && isUploadingImg && (
+                  <span className="text-[11px] text-sky-600 font-bold flex items-center gap-1 animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    Đang tải ảnh lên...
+                  </span>
+                )}
               </div>
 
               {/* Hidden file inputs for Camera and File Picker */}
@@ -504,10 +528,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition"
+              disabled={isUploadingImg}
+              className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 rounded-xl shadow-sm transition"
             >
               <Save className="w-4 h-4" />
-              <span>{productToEdit ? 'Lưu thay đổi' : 'Tạo sản phẩm'}</span>
+              <span>{isUploadingImg ? 'Đang tải ảnh...' : productToEdit ? 'Lưu thay đổi' : 'Tạo sản phẩm'}</span>
             </button>
           </div>
         </form>

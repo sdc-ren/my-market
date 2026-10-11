@@ -34,12 +34,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = 'barcode-reader-viewport';
 
+  useLockBodyScroll(isOpen);
+
   useEffect(() => {
     setCurrentAction(initialActionType);
   }, [initialActionType]);
 
   useEffect(() => {
-    useLockBodyScroll(isOpen);
     if (!isOpen) {
       stopCamera();
       setMatchedProduct(null);
@@ -88,6 +89,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           Html5QrcodeSupportedFormats.UPC_A,
           Html5QrcodeSupportedFormats.UPC_E,
           Html5QrcodeSupportedFormats.QR_CODE,
+          // ITF (Interleaved 2 of 5): mã vạch thùng carton 14 số, rất phổ biến khi nhập hàng tạp hoá
+          Html5QrcodeSupportedFormats.ITF,
         ],
         verbose: false,
       });
@@ -157,7 +160,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
       <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">

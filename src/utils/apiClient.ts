@@ -229,4 +229,20 @@ export const apiClient = {
       return false;
     }
   },
+
+  // 7. UPLOAD ẢNH — upload ảnh sản phẩm lên Supabase Storage, trả về public URL
+  async uploadImage(dataUrl: string): Promise<string | null> {
+    try {
+      const res = await apiFetch('/api/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.url || null;
+    } catch {
+      return null;
+    }
+  },
 };
