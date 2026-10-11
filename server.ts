@@ -6,8 +6,7 @@ import { fileURLToPath } from 'url';
 import { db } from './src/db';
 import * as schema from './src/db/schema';
 import { requireAuth, hashPin, verifyPin, isHashedPin, buildSessionCookie, buildClearSessionCookie, isAuthenticated, checkRateLimit, resetRateLimit, getClientIp } from './api/_auth.js';
-import { randomUUID } from 'crypto';
-import { supabaseAdmin, PRODUCT_IMAGES_BUCKET, publicImageUrl, deleteImageByUrl } from './api/_storage.js';
+import { isStorageConfigured, uploadImageToStorage, deleteImageByUrl } from './api/_storage.js';
 import { eq, desc } from 'drizzle-orm';
 import { STORE_CATEGORIES, INITIAL_PRODUCTS, INITIAL_DEBTORS, DEFAULT_STORE_SETTINGS } from './src/data/mockData';
 
@@ -179,7 +178,7 @@ app.delete('/api/products/:id', async (req: Request, res: Response) => {
 // Upload ảnh sản phẩm lên Supabase Storage (chỉ quản lý đã đăng nhập)
 app.post('/api/upload-image', async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
-  if (!supabaseAdmin) {
+  if (!isStorageConfigured()) {
     return res.status(503).json({ error: 'Chưa cấu hình Supabase Storage' });
   }
   try {
@@ -194,18 +193,11 @@ app.post('/api/upload-image', async (req: Request, res: Response) => {
     if (buffer.length === 0 || buffer.length > 5 * 1024 * 1024) {
       return res.status(413).json({ error: 'Ảnh quá lớn (tối đa 5MB)' });
     }
-    const path = `products/${new Date().getFullYear()}/${randomUUID()}.${ext}`;
-    const { error } = await supabaseAdmin.storage
-      .from(PRODUCT_IMAGES_BUCKET)
-      .upload(path, buffer, { contentType, upsert: false });
-    if (error) {
-      console.error('Storage upload error:', error.message);
-      return res.status(500).json({ error: 'Upload ảnh thất bại' });
-    }
-    return res.json({ success: true, url: publicImageUrl(path), path });
+    const { url, path } = await uploadImageToStorage(buffer, contentType, ext);
+    return res.json({ success: true, url, path });
   } catch (error: any) {
-    console.error('Upload image error:', error);
-    return res.status(500).json({ error: 'Lỗi server' });
+    console.error('Upload image error:', error.message);
+    return res.status(500).json({ error: error.message || 'Lỗi server' });
   }
 });
 
