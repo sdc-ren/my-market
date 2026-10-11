@@ -252,7 +252,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     if (searchStock.trim()) {
       const q = searchStock.toLowerCase().trim();
       list = list.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.barcode.includes(q) || p.shelfLocation?.toLowerCase().includes(q)
+        (p) => p.name.toLowerCase().includes(q) || p.barcode.includes(q)
       );
     }
     if (stockFilter === 'LOW') {
@@ -1073,7 +1073,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     <tr>
                       <th className="py-3 px-4">Sản phẩm</th>
                       <th className="py-3 px-3">Mã vạch</th>
-                      <th className="py-3 px-3">Vị trí kệ</th>
                       <th className="py-3 px-3 text-right">Giá vốn</th>
                       <th className="py-3 px-3 text-right">Giá bán</th>
                       <th className="py-3 px-3 text-center">Tồn kho</th>
@@ -1101,11 +1100,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                             </div>
                           </td>
                           <td className="py-3 px-3 font-mono text-slate-600">{p.barcode}</td>
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
-                              {p.shelfLocation || 'Chưa đặt'}
-                            </span>
-                          </td>
                           <td className="py-3 px-3 text-right text-slate-600 font-mono">
                             {formatVND(p.costPrice)}
                           </td>
@@ -1144,7 +1138,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     })}
                     {filteredStockProducts.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-12 px-4 text-center">
+                        <td colSpan={7} className="py-12 px-4 text-center">
                           <Package className="w-12 h-12 mx-auto mb-2 text-slate-300" />
                           <h4 className="font-bold text-slate-700">
                             {products.length === 0 ? 'Kho đang trống' : 'Không tìm thấy sản phẩm phù hợp'}

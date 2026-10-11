@@ -36,7 +36,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     mfgDate: new Date().toISOString().split('T')[0],
     expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     batchNumber: 'LO-' + Math.floor(1000 + Math.random() * 9000),
-    shelfLocation: 'Kệ A1 - Tầng 1',
+    shelfLocation: '',
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
     description: '',
   });
@@ -107,7 +107,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         mfgDate: new Date().toISOString().split('T')[0],
         expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         batchNumber: 'LO-' + Math.floor(1000 + Math.random() * 9000),
-        shelfLocation: 'Kệ A1 - Tầng 1',
+        shelfLocation: '',
         image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
         description: '',
       });
@@ -134,7 +134,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       mfgDate: formData.mfgDate || '',
       expiryDate: formData.expiryDate || '',
       batchNumber: formData.batchNumber || 'LO-01',
-      shelfLocation: formData.shelfLocation || 'Kệ A1',
+      shelfLocation: formData.shelfLocation || '',
       image: formData.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
       description: formData.description || '',
       soldCount: productToEdit?.soldCount || 0,
@@ -366,9 +366,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
             </div>
 
-            {/* Row 5: MFG Date & EXP Date & Batch */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-              <div>
+            {/* Row 5: MFG Date & EXP Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+              <div className="min-w-0">
                 <label className="font-bold text-slate-700 block mb-1">
                   Ngày sản xuất (NSX)
                 </label>
@@ -376,11 +376,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="date"
                   value={formData.mfgDate || ''}
                   onChange={(e) => setFormData({ ...formData, mfgDate: e.target.value })}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm sm:text-xs font-mono"
+                  className="w-full min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm sm:text-xs font-mono"
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="font-bold text-rose-700 block mb-1">
                   Hạn sử dụng (HSD) *
                 </label>
@@ -389,18 +389,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   required
                   value={formData.expiryDate || ''}
                   onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                  className="w-full px-2.5 py-1.5 bg-rose-50/50 border border-rose-200 rounded-xl text-sm sm:text-xs font-mono font-bold text-rose-800"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Vị trí kệ / Số lô</label>
-                <input
-                  type="text"
-                  value={formData.shelfLocation || ''}
-                  onChange={(e) => setFormData({ ...formData, shelfLocation: e.target.value })}
-                  placeholder="Kệ A1 - Tầng 2"
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm sm:text-xs"
+                  className="w-full min-w-0 px-2.5 py-1.5 bg-rose-50/50 border border-rose-200 rounded-xl text-sm sm:text-xs font-mono font-bold text-rose-800"
                 />
               </div>
             </div>

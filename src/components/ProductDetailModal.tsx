@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { formatVND, formatDate, getExpiryStatus } from '../utils/vietqr';
-import { X, ShoppingCart, Plus, Minus, Barcode, Calendar, MapPin, PackageCheck, AlertCircle, Edit3 } from 'lucide-react';
+import { X, ShoppingCart, Plus, Minus, Barcode, Calendar, PackageCheck, AlertCircle, Edit3 } from 'lucide-react';
 import { ProductImage } from './ProductImage';
 
 interface ProductDetailModalProps {
@@ -104,14 +104,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div>
                 <span className="text-[10px] text-slate-400 block">Mã vạch:</span>
                 <strong className="font-mono text-slate-800">{product.barcode}</strong>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-slate-600">
-              <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <span className="text-[10px] text-slate-400 block">Vị trí kệ:</span>
-                <strong className="text-slate-800">{product.shelfLocation || 'Chưa xếp'}</strong>
               </div>
             </div>
 
