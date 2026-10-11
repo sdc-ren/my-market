@@ -36,45 +36,56 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 // --- AUTH (server-side PIN) ---
-app.post('/api/auth/login', async (req: Request, res: Response) => {
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    res.status(429).json({ error: 'Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.' });
+// --- AUTH (gộp 1 route: ?action=login|logout|session) ---
+app.all('/api/auth', async (req: Request, res: Response) => {
+  const action = req.query.action as string | undefined;
+
+  if (action === 'session') {
+    res.json({ authenticated: isAuthenticated(req) });
     return;
   }
-  const pin = (req.body as any)?.pin;
-  if (!pin || typeof pin !== 'string') {
-    res.status(400).json({ error: 'Thiếu mã PIN' });
+
+  if (action === 'logout') {
+    res.setHeader('Set-Cookie', buildClearSessionCookie());
+    res.json({ success: true });
     return;
   }
-  try {
-    const rows = await db.select().from(schema.storeSettings).limit(1);
-    const stored = (rows[0] as any)?.ownerPin || '';
-    const ok = await verifyPin(pin, stored);
-    if (!ok) {
-      res.status(401).json({ error: 'Sai mã PIN' });
+
+  if (action === 'login') {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(ip)) {
+      res.status(429).json({ error: 'Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.' });
       return;
     }
-    if (stored && !isHashedPin(stored)) {
-      const hashed = await hashPin(pin);
-      await db.update(schema.storeSettings).set({ ownerPin: hashed, updatedAt: new Date() }).where(eq(schema.storeSettings.id, 'default'));
+    const pin = (req.body as any)?.pin;
+    if (!pin || typeof pin !== 'string') {
+      res.status(400).json({ error: 'Thiếu mã PIN' });
+      return;
     }
-    resetRateLimit(ip);
-    res.setHeader('Set-Cookie', buildSessionCookie());
-    res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: 'Lỗi server' });
+    try {
+      const rows = await db.select().from(schema.storeSettings).limit(1);
+      const stored = (rows[0] as any)?.ownerPin || '';
+      const ok = await verifyPin(pin, stored);
+      if (!ok) {
+        res.status(401).json({ error: 'Sai mã PIN' });
+        return;
+      }
+      if (stored && !isHashedPin(stored)) {
+        const hashed = await hashPin(pin);
+        await db.update(schema.storeSettings).set({ ownerPin: hashed, updatedAt: new Date() }).where(eq(schema.storeSettings.id, 'default'));
+      }
+      resetRateLimit(ip);
+      res.setHeader('Set-Cookie', buildSessionCookie());
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: 'Lỗi server' });
+    }
+    return;
   }
+
+  res.status(400).json({ error: 'Thiếu action (login|logout|session)' });
 });
 
-app.post('/api/auth/logout', (_req: Request, res: Response) => {
-  res.setHeader('Set-Cookie', buildClearSessionCookie());
-  res.json({ success: true });
-});
-
-app.get('/api/auth/session', (req: Request, res: Response) => {
-  res.json({ authenticated: isAuthenticated(req) });
-});
 
 // =============================================================================
 // 1. PRODUCTS API

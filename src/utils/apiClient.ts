@@ -198,7 +198,7 @@ export const apiClient = {
   // 6. AUTH — đăng nhập quản lý bằng PIN (xác thực ở server)
   async login(pin: string): Promise<{ ok: boolean; error?: string }> {
     try {
-      const res = await apiFetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth?action=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin }),
@@ -213,7 +213,7 @@ export const apiClient = {
 
   async logout(): Promise<void> {
     try {
-      await apiFetch('/api/auth/logout', { method: 'POST' });
+      await apiFetch('/api/auth?action=logout', { method: 'POST' });
     } catch {
       /* bỏ qua */
     }
@@ -221,7 +221,7 @@ export const apiClient = {
 
   async checkSession(): Promise<boolean> {
     try {
-      const res = await apiFetch('/api/auth/session');
+      const res = await apiFetch('/api/auth?action=session');
       if (!res.ok) return false;
       const data = await res.json();
       return !!data.authenticated;
