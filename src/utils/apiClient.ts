@@ -49,7 +49,7 @@ export const apiClient = {
 
   async deleteProduct(id: string): Promise<boolean> {
     try {
-      const res = await apiFetch(`/api/products/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/products?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       return res.ok;
     } catch (err) {
       console.warn('Backend API deleteProduct error:', err);
@@ -111,7 +111,7 @@ export const apiClient = {
 
   async deleteDebtor(id: string): Promise<boolean> {
     try {
-      const res = await apiFetch(`/api/debtors/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/debtors?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       return res.ok;
     } catch (err) {
       console.warn('Backend API deleteDebtor error:', err);
@@ -126,7 +126,7 @@ export const apiClient = {
     newStatus?: 'ACTIVE' | 'SETTLED'
   ): Promise<boolean> {
     try {
-      const res = await apiFetch('/api/debt-transactions', {
+      const res = await apiFetch('/api/debtors?action=transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

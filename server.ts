@@ -165,10 +165,11 @@ app.post('/api/products', async (req: Request, res: Response) => {
   }
 });
 
-app.delete('/api/products/:id', async (req: Request, res: Response) => {
+app.delete('/api/products', async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
-    const { id } = req.params;
+    const id = req.query.id as string | undefined;
+    if (!id) return res.status(400).json({ error: 'Missing product id' });
     if (db) {
       const rows = await db
         .select({ image: schema.products.image })
@@ -336,6 +337,63 @@ app.get('/api/debtors', async (req: Request, res: Response) => {
 
 app.post('/api/debtors', async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
+
+  // POST /api/debtors?action=transaction — ghi giao dịch nợ (atomic)
+  if (req.query.action === 'transaction') {
+    try {
+      const { transaction, items, newTotalDebt, newStatus } = req.body;
+      if (!transaction || !transaction.id || !transaction.debtorId) {
+        return res.status(400).json({ error: 'Invalid transaction payload' });
+      }
+
+      if (db) {
+        await db.transaction(async (tx) => {
+          await tx.insert(schema.debtTransactions).values({
+            id: transaction.id,
+            debtorId: transaction.debtorId,
+            type: transaction.type,
+            amount: transaction.amount,
+            balanceAfter: transaction.balanceAfter,
+            paymentMethod: transaction.paymentMethod || 'CASH',
+            note: transaction.note || '',
+          });
+
+          if (items && Array.isArray(items) && items.length > 0) {
+            for (const it of items) {
+              await tx.insert(schema.debtTransactionItems).values({
+                id: it.id,
+                transactionId: transaction.id,
+                productId: it.productId || null,
+                barcode: it.barcode || null,
+                productName: it.productName,
+                unit: it.unit || '',
+                quantity: it.quantity || 1,
+                unitPrice: it.unitPrice || 0,
+                totalPrice: it.totalPrice || 0,
+              });
+            }
+          }
+
+          if (typeof newTotalDebt === 'number') {
+            await tx
+              .update(schema.debtors)
+              .set({
+                totalDebt: newTotalDebt,
+                status: newStatus || (newTotalDebt > 0 ? 'ACTIVE' : 'SETTLED'),
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.debtors.id, transaction.debtorId));
+          }
+        });
+      }
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error recording debt transaction:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   try {
     const debtor = req.body;
     if (!debtor.id || !debtor.name) {
@@ -377,10 +435,11 @@ app.post('/api/debtors', async (req: Request, res: Response) => {
   }
 });
 
-app.delete('/api/debtors/:id', async (req: Request, res: Response) => {
+app.delete('/api/debtors', async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
-    const { id } = req.params;
+    const id = req.query.id as string | undefined;
+    if (!id) return res.status(400).json({ error: 'Missing debtor id' });
     if (db) {
       await db.delete(schema.debtors).where(eq(schema.debtors.id, id));
     }
@@ -391,65 +450,7 @@ app.delete('/api/debtors/:id', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/debt-transactions', async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
-  try {
-    const { transaction, items, newTotalDebt, newStatus } = req.body;
-    if (!transaction || !transaction.id || !transaction.debtorId) {
-      return res.status(400).json({ error: 'Invalid transaction payload' });
-    }
-
-    if (db) {
-      // Execute in atomic transaction
-      await db.transaction(async (tx) => {
-        // 1. Insert transaction
-        await tx.insert(schema.debtTransactions).values({
-          id: transaction.id,
-          debtorId: transaction.debtorId,
-          type: transaction.type,
-          amount: transaction.amount,
-          balanceAfter: transaction.balanceAfter,
-          paymentMethod: transaction.paymentMethod || 'CASH',
-          note: transaction.note || '',
-        });
-
-        // 2. Insert items if any
-        if (items && Array.isArray(items) && items.length > 0) {
-          for (const it of items) {
-            await tx.insert(schema.debtTransactionItems).values({
-              id: it.id,
-              transactionId: transaction.id,
-              productId: it.productId || null,
-              barcode: it.barcode || null,
-              productName: it.productName,
-              unit: it.unit || '',
-              quantity: it.quantity || 1,
-              unitPrice: it.unitPrice || 0,
-              totalPrice: it.totalPrice || 0,
-            });
-          }
-        }
-
-        // 3. Update debtor total debt & status
-        if (typeof newTotalDebt === 'number') {
-          await tx
-            .update(schema.debtors)
-            .set({
-              totalDebt: newTotalDebt,
-              status: newStatus || (newTotalDebt > 0 ? 'ACTIVE' : 'SETTLED'),
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.debtors.id, transaction.debtorId));
-        }
-      });
-    }
-
-    return res.json({ success: true });
-  } catch (error: any) {
-    console.error('Error recording debt transaction:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
+// Gộp vào POST /api/debtors?action=transaction (xem route bên dưới)
 
 // =============================================================================
 // 4. ORDERS API
