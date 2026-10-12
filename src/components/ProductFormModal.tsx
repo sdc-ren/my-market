@@ -5,6 +5,7 @@ import { STORE_CATEGORIES } from '../data/mockData';
 import { apiClient } from '../utils/apiClient';
 import { X, Barcode, Camera, Save, Image as ImageIcon, Calendar, Package, Upload, RefreshCw } from 'lucide-react';
 import { ProductImage } from './ProductImage';
+import { NumberInput } from './ui/NumberInput';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -341,54 +342,50 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-emerald-50/60 p-3 rounded-2xl border border-emerald-200">
               <div>
                 <label className="font-bold text-slate-700 block mb-1 text-[11px]">Giá vốn (đ)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  value={formData.costPrice || 0}
-                  onChange={(e) => setFormData({ ...formData, costPrice: Number(e.target.value) })}
+                <NumberInput
+                  value={formData.costPrice}
+                  onChange={(d) => setFormData({ ...formData, costPrice: Number(d) || 0 })}
+                  placeholder="0"
                   className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm sm:text-xs font-mono font-bold"
                 />
               </div>
 
               <div>
                 <label className="font-bold text-emerald-800 block mb-1 text-[11px]">Giá bán (đ)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  value={formData.sellingPrice || 0}
-                  onChange={(e) => setFormData({ ...formData, sellingPrice: Number(e.target.value) })}
+                <NumberInput
+                  value={formData.sellingPrice}
+                  onChange={(d) => setFormData({ ...formData, sellingPrice: Number(d) || 0 })}
+                  placeholder="0"
                   className="w-full px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg text-sm sm:text-xs font-mono font-bold text-emerald-700"
                 />
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1 text-[11px]">Tồn kho</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.stock || 0}
-                  onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
+                <NumberInput
+                  format="plain"
+                  value={formData.stock}
+                  onChange={(d) => setFormData({ ...formData, stock: Number(d) || 0 })}
+                  placeholder="0"
                   className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm sm:text-xs font-mono font-bold"
                 />
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1 text-[11px]">Báo sắp hết</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.minStockAlert || 5}
-                  onChange={(e) => setFormData({ ...formData, minStockAlert: Number(e.target.value) })}
+                <NumberInput
+                  format="plain"
+                  value={formData.minStockAlert}
+                  onChange={(d) => setFormData({ ...formData, minStockAlert: Number(d) || 5 })}
+                  placeholder="5"
                   className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm sm:text-xs font-mono font-bold text-amber-700"
                 />
               </div>
             </div>
 
             {/* Row 5: MFG Date & EXP Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <div className="min-w-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+              <div className="min-w-0 max-w-full">
                 <label className="font-bold text-slate-700 block mb-1">
                   Ngày sản xuất (NSX)
                 </label>
@@ -396,11 +393,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="date"
                   value={formData.mfgDate || ''}
                   onChange={(e) => setFormData({ ...formData, mfgDate: e.target.value })}
-                  className="w-full min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm sm:text-xs font-mono"
+                  className="w-full min-w-0 max-w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                 />
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 max-w-full">
                 <label className="font-bold text-rose-700 block mb-1">
                   Hạn sử dụng (HSD) *
                 </label>
@@ -409,7 +406,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   required
                   value={formData.expiryDate || ''}
                   onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                  className="w-full min-w-0 px-2.5 py-1.5 bg-rose-50/50 border border-rose-200 rounded-xl text-sm sm:text-xs font-mono font-bold text-rose-800"
+                  className="w-full min-w-0 max-w-full px-2 py-1.5 bg-rose-50/50 border border-rose-200 rounded-xl text-xs text-rose-800"
                 />
               </div>
             </div>

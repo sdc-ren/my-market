@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { NumberInput } from './ui/NumberInput';
 import { StoreSettings, BusinessHour } from '../types';
 import {
   Store,
@@ -364,22 +365,22 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
       >
         <div>
           <label className={labelCls}>Ngưỡng tồn kho thấp (sản phẩm)</label>
-          <input
-            type="number"
-            min={1}
+          <NumberInput
+            format="plain"
+            emptyWhenZero={false}
             className={inputCls}
             value={form.lowStockThreshold}
-            onChange={(e) => set('lowStockThreshold', Math.max(1, Number(e.target.value) || 1))}
+            onChange={(d) => set('lowStockThreshold', Math.max(1, Number(d) || 1))}
           />
         </div>
         <div>
           <label className={labelCls}>Cảnh báo HSD trước (ngày)</label>
-          <input
-            type="number"
-            min={1}
+          <NumberInput
+            format="plain"
+            emptyWhenZero={false}
             className={inputCls}
             value={form.expiryWarningDays}
-            onChange={(e) => set('expiryWarningDays', Math.max(1, Number(e.target.value) || 1))}
+            onChange={(d) => set('expiryWarningDays', Math.max(1, Number(d) || 1))}
           />
         </div>
       </Section>

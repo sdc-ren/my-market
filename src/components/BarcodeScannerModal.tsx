@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { NumberInput } from './ui/NumberInput';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Product } from '../types';
@@ -350,10 +351,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     >
                       <Minus className="w-3 h-3" />
                     </button>
-                    <input
-                      type="number"
+                    <NumberInput
+                      format="plain"
+                      emptyWhenZero={false}
                       value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(d) => setQuantity(Math.max(1, parseInt(d) || 1))}
                       className="w-12 text-center text-xs font-bold text-slate-900 focus:outline-none"
                     />
                     <button

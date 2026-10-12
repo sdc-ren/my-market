@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { NumberInput } from './ui/NumberInput';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Debtor, DebtTransaction, DebtTransactionItem, Product, StoreSettings } from '../types';
 import { formatVND } from '../utils/vietqr';
@@ -665,13 +666,12 @@ export const DebtManagementView: React.FC<DebtManagementViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Hạn mức cho nợ (VNĐ)</label>
-                  <input
-                    type="number"
-                    step="50000"
+                  <NumberInput
                     value={newDebtorData.creditLimit}
-                    onChange={(e) =>
-                      setNewDebtorData({ ...newDebtorData, creditLimit: Number(e.target.value) || 0 })
+                    onChange={(d) =>
+                      setNewDebtorData({ ...newDebtorData, creditLimit: Number(d) || 0 })
                     }
+                    placeholder="0"
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -704,13 +704,11 @@ export const DebtManagementView: React.FC<DebtManagementViewProps> = ({
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col gap-2">
                 <span className="text-xs font-bold text-slate-700">Số nợ ban đầu (nếu đã nợ từ trước)</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    step="1000"
+                  <NumberInput
                     placeholder="Số tiền nợ (VNĐ)"
                     value={newDebtorData.initialDebt || ''}
-                    onChange={(e) =>
-                      setNewDebtorData({ ...newDebtorData, initialDebt: Number(e.target.value) || 0 })
+                    onChange={(d) =>
+                      setNewDebtorData({ ...newDebtorData, initialDebt: Number(d) || 0 })
                     }
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
@@ -892,9 +890,7 @@ export const DebtManagementView: React.FC<DebtManagementViewProps> = ({
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Số tiền nợ (VNĐ) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  step="1000"
+                <NumberInput
                   required
                   value={
                     selectedProductItems.length > 0
@@ -904,7 +900,7 @@ export const DebtManagementView: React.FC<DebtManagementViewProps> = ({
                         )
                       : debtAmount || ''
                   }
-                  onChange={(e) => setDebtAmount(Number(e.target.value) || 0)}
+                  onChange={(d) => setDebtAmount(Number(d) || 0)}
                   disabled={selectedProductItems.length > 0}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-100"
                 />
@@ -989,14 +985,11 @@ export const DebtManagementView: React.FC<DebtManagementViewProps> = ({
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Số tiền khách trả (VNĐ) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  step="1000"
+                <NumberInput
                   required
-                  min="1000"
-                  max={selectedDebtorForPay.totalDebt}
                   value={paymentAmount || ''}
-                  onChange={(e) => setPaymentAmount(Number(e.target.value) || 0)}
+                  onChange={(d) => setPaymentAmount(Number(d) || 0)}
+                  placeholder="0"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-lg font-black text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
 
