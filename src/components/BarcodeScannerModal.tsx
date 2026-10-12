@@ -33,6 +33,17 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = 'barcode-reader-viewport';
+  // Chống camera bắn callback nhiều lần cho cùng 1 mã
+  const scanHandledRef = useRef(false);
+  // Ref giữ giá trị mới nhất (tránh stale closure vì callback camera đăng ký 1 lần lúc mở)
+  const quantityRef = useRef(quantity);
+  const noteRef = useRef(note);
+  const actionRef = useRef(currentAction);
+  useEffect(() => {
+    quantityRef.current = quantity;
+    noteRef.current = note;
+    actionRef.current = currentAction;
+  });
 
   useLockBodyScroll(isOpen);
 
@@ -46,6 +57,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       setMatchedProduct(null);
       setManualCode('');
       setScannerSuccessMsg(null);
+      scanHandledRef.current = false;
       return;
     }
 
@@ -59,18 +71,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
   const handleBarcodeDetected = (code: string) => {
     const cleanCode = code.trim();
+    if (!cleanCode || scanHandledRef.current) return;
+    scanHandledRef.current = true;
     playDingSound('beep');
-    setManualCode(cleanCode);
-
-    // Look up product in inventory
-    const found = products.find((p) => p.barcode === cleanCode);
-    if (found) {
-      setMatchedProduct(found);
-      setScannerSuccessMsg(`Đã nhận diện: ${found.name}`);
-    } else {
-      setMatchedProduct(null);
-      setScannerSuccessMsg(`Mã vạch: ${cleanCode} (Chưa có trong kho)`);
-    }
+    // Quét xong thực hiện ngay + đóng dialog, khỏi chờ bấm Xác nhận
+    // (dùng ref để lấy đúng số lượng/ghi chú mới nhất)
+    onBarcodeScanned(cleanCode, actionRef.current, quantityRef.current, noteRef.current);
+    onClose();
   };
 
   const startCamera = async () => {
