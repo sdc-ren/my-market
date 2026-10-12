@@ -327,6 +327,8 @@ export default function App() {
   }) => {
     const orderId = 'ord-' + Date.now();
     const orderCode = 'TH-' + Math.floor(1000 + Math.random() * 9000);
+    // Chủ quán tự tạo (đã đăng nhập) = duyệt ngay khi tạo; khách vãng lai → chờ duyệt
+    const ownerApproved = isOwnerAuthenticated;
     const newOrder: Order = {
       id: orderId,
       code: orderCode,
@@ -338,7 +340,7 @@ export default function App() {
       totalAmount: orderData.totalAmount,
       paymentMethod: orderData.paymentMethod,
       paymentStatus: 'PENDING',
-      orderStatus: 'PENDING',
+      orderStatus: ownerApproved ? 'CONFIRMED' : 'PENDING',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       note: orderData.note,
@@ -457,14 +459,16 @@ export default function App() {
           if (res.order && typeof res.order.totalAmount === 'number') {
             setOrders((prev) => {
               const next = prev.map((o) =>
-                o.id === newOrder.id ? { ...o, totalAmount: res.order.totalAmount } : o
+                o.id === newOrder.id
+                  ? { ...o, totalAmount: res.order.totalAmount, orderStatus: res.order.orderStatus || o.orderStatus }
+                  : o
               );
               saveStoredOrders(next);
               return next;
             });
             if (activeCustomerOrder?.id === newOrder.id) {
               setActiveCustomerOrder((prev) =>
-                prev ? { ...prev, totalAmount: res.order.totalAmount } : prev
+                prev ? { ...prev, totalAmount: res.order.totalAmount, orderStatus: res.order.orderStatus || prev.orderStatus } : prev
               );
             }
           }

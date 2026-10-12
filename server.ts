@@ -526,6 +526,10 @@ app.post('/api/orders', async (req: Request, res: Response) => {
       }
       if (!db) return res.status(503).json({ error: 'Database unavailable' });
 
+      // Chủ quán tự tạo đơn (đã đăng nhập) = duyệt ngay khi tạo → CONFIRMED.
+      // Khách vãng lai tự đặt → PENDING để chủ quán duyệt sau.
+      const ownerApproved = isAuthenticated(req);
+
       const dup = await db
         .select({ id: schema.orders.id })
         .from(schema.orders)
@@ -581,7 +585,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
             totalAmount,
             paymentMethod: method,
             paymentStatus: 'PENDING',
-            orderStatus: 'PENDING',
+            orderStatus: ownerApproved ? 'CONFIRMED' : 'PENDING',
             note: note || '',
           });
 
@@ -667,7 +671,8 @@ app.post('/api/orders', async (req: Request, res: Response) => {
           success: true,
           order: {
             id, code, customerName: customerName || '', totalAmount,
-            paymentMethod: method, paymentStatus: 'PENDING', orderStatus: 'PENDING',
+            paymentMethod: method, paymentStatus: 'PENDING',
+            orderStatus: ownerApproved ? 'CONFIRMED' : 'PENDING',
           },
           stockUpdates,
           debtTransaction,
