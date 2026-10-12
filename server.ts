@@ -7,7 +7,7 @@ import { db } from './src/db';
 import * as schema from './src/db/schema';
 import { requireAuth, hashPin, verifyPin, isHashedPin, buildSessionCookie, buildClearSessionCookie, isAuthenticated, checkRateLimit, resetRateLimit, getClientIp } from './api/_auth.js';
 import { isStorageConfigured, uploadImageToStorage, deleteImageByUrl } from './api/_storage.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { STORE_CATEGORIES, INITIAL_PRODUCTS, INITIAL_DEBTORS, DEFAULT_STORE_SETTINGS } from './src/data/mockData';
 
 dotenv.config();
@@ -504,6 +504,186 @@ app.get('/api/orders', async (req: Request, res: Response) => {
 });
 
 app.post('/api/orders', async (req: Request, res: Response) => {
+  // POST /api/orders?action=checkout — THANH TOÁN THỐNG NHẤT (atomic).
+  // Xem chú thích chi tiết trong api/orders.ts (bản Vercel).
+  if (req.query.action === 'checkout') {
+    try {
+      const {
+        id, code, customerName, customerPhone, customerAddress,
+        deliveryType, paymentMethod, note, items, debtorId,
+      } = req.body || {};
+      if (!id || !code) return res.status(400).json({ error: 'Missing order id or code' });
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Empty cart' });
+      }
+      const method = paymentMethod || 'CASH';
+      if (!['CASH', 'VIETQR', 'DEBT'].includes(method)) {
+        return res.status(400).json({ error: 'Invalid payment method' });
+      }
+      if (method === 'DEBT') {
+        if (!requireAuth(req, res)) return;
+        if (!debtorId) return res.status(400).json({ error: 'Missing debtorId for debt checkout' });
+      }
+      if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+      const dup = await db
+        .select({ id: schema.orders.id })
+        .from(schema.orders)
+        .where(eq(schema.orders.id, id as string))
+        .limit(1);
+
+      const productIds = [...new Set(items.map((i: any) => i.productId))];
+      const dbProducts = await db
+        .select()
+        .from(schema.products)
+        .where(inArray(schema.products.id, productIds as string[]));
+
+      if (dup.length === 0) {
+        const byId = new Map(dbProducts.map((p) => [p.id, p]));
+        const insufficient: { productId: string; name: string; stock: number; requested: number }[] = [];
+        let totalAmount = 0;
+        const lines: { p: (typeof dbProducts)[number]; qty: number }[] = [];
+        for (const it of items) {
+          const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
+          const p = byId.get(it.productId);
+          if (!p) return res.status(400).json({ error: `Product not found: ${it.productId}` });
+          if (p.stock < qty) {
+            insufficient.push({ productId: p.id, name: p.name, stock: p.stock, requested: qty });
+          }
+          totalAmount += p.sellingPrice * qty;
+          lines.push({ p, qty });
+        }
+        if (insufficient.length > 0) {
+          return res.status(409).json({ error: 'Insufficient stock', items: insufficient });
+        }
+
+        let debtor: (typeof schema.debtors.$inferSelect) | null = null;
+        if (method === 'DEBT') {
+          const dRows = await db
+            .select()
+            .from(schema.debtors)
+            .where(eq(schema.debtors.id, debtorId as string))
+            .limit(1);
+          if (dRows.length === 0) return res.status(400).json({ error: 'Debtor not found' });
+          debtor = dRows[0];
+        }
+
+        const now = new Date();
+        const debtTxId = `dt-${id}`;
+        await db.transaction(async (tx) => {
+          await tx.insert(schema.orders).values({
+            id: id as string,
+            code: code as string,
+            customerName: customerName || '',
+            customerPhone: customerPhone || '',
+            customerAddress: customerAddress || '',
+            deliveryType: deliveryType || 'PICKUP',
+            totalAmount,
+            paymentMethod: method,
+            paymentStatus: 'PENDING',
+            orderStatus: 'PENDING',
+            note: note || '',
+          });
+
+          for (const { p, qty } of lines) {
+            await tx.insert(schema.orderItems).values({
+              id: `${id}-${p.id}`,
+              orderId: id as string,
+              productId: p.id,
+              barcode: p.barcode || '',
+              productName: p.name,
+              price: p.sellingPrice,
+              costPrice: p.costPrice || 0,
+              quantity: qty,
+              unit: p.unit || '',
+              image: p.image || '',
+            });
+            await tx
+              .update(schema.products)
+              .set({ stock: p.stock - qty, soldCount: (p.soldCount || 0) + qty, updatedAt: now })
+              .where(eq(schema.products.id, p.id));
+          }
+
+          if (method === 'DEBT' && debtor) {
+            const newTotalDebt = (debtor.totalDebt || 0) + totalAmount;
+            await tx.insert(schema.debtTransactions).values({
+              id: debtTxId,
+              debtorId: debtor.id,
+              type: 'DEBT',
+              amount: totalAmount,
+              balanceAfter: newTotalDebt,
+              paymentMethod: 'DEBT',
+              note: `Bán chịu đơn ${code}`,
+            });
+            for (const { p, qty } of lines) {
+              await tx.insert(schema.debtTransactionItems).values({
+                id: `${debtTxId}-${p.id}`,
+                transactionId: debtTxId,
+                productId: p.id,
+                barcode: p.barcode || '',
+                productName: p.name,
+                unit: p.unit || '',
+                quantity: qty,
+                unitPrice: p.sellingPrice,
+                totalPrice: p.sellingPrice * qty,
+              });
+            }
+            await tx
+              .update(schema.debtors)
+              .set({ totalDebt: newTotalDebt, status: 'ACTIVE', updatedAt: now })
+              .where(eq(schema.debtors.id, debtor.id));
+          }
+        });
+
+        const stockUpdates = lines.map(({ p, qty }) => ({
+          id: p.id,
+          stock: p.stock - qty,
+          soldCount: (p.soldCount || 0) + qty,
+        }));
+        const debtTransaction =
+          method === 'DEBT'
+            ? {
+                id: debtTxId,
+                debtorId: debtorId as string,
+                type: 'DEBT' as const,
+                amount: totalAmount,
+                balanceAfter: (debtor!.totalDebt || 0) + totalAmount,
+                paymentMethod: 'DEBT' as const,
+                note: `Bán chịu đơn ${code}`,
+                createdAt: now.toISOString(),
+                items: lines.map(({ p, qty }) => ({
+                  id: `${debtTxId}-${p.id}`,
+                  productId: p.id,
+                  barcode: p.barcode || '',
+                  productName: p.name,
+                  unit: p.unit || '',
+                  quantity: qty,
+                  unitPrice: p.sellingPrice,
+                  totalPrice: p.sellingPrice * qty,
+                })),
+              }
+            : undefined;
+        return res.json({
+          success: true,
+          order: {
+            id, code, customerName: customerName || '', totalAmount,
+            paymentMethod: method, paymentStatus: 'PENDING', orderStatus: 'PENDING',
+          },
+          stockUpdates,
+          debtTransaction,
+        });
+      }
+
+      const stockUpdates = dbProducts.map((p) => ({
+        id: p.id, stock: p.stock, soldCount: p.soldCount || 0,
+      }));
+      return res.json({ success: true, deduped: true, order: { id, code }, stockUpdates });
+    } catch (error: any) {
+      console.error('Error during checkout:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   try {
     const order = req.body;
     if (!order.id || !order.code) {

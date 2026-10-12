@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Product, Order, InventoryTransaction, AppNotification, StoreSettings, OrderItem, Category, Debtor } from './types';
+import { Product, Order, InventoryTransaction, AppNotification, StoreSettings, OrderItem, Category, Debtor, DebtTransaction } from './types';
 import {
   getStoredProducts,
   saveStoredProducts,
@@ -312,20 +312,23 @@ export default function App() {
     setCart({});
   };
 
-  // Customer Checkout
+  // Customer Checkout — thanh toán thống nhất qua server (atomic: đơn + kho + nợ).
+  // Optimistic local-first (mất mạng vẫn bán được), server đối chiếu sau.
   const handleCheckout = (orderData: {
     customerName: string;
     customerPhone: string;
     customerAddress: string;
     deliveryType: 'DELIVERY' | 'PICKUP';
-    paymentMethod: 'VIETQR' | 'CASH';
+    paymentMethod: 'VIETQR' | 'CASH' | 'DEBT';
+    debtorId?: string;
     note: string;
     items: OrderItem[];
     totalAmount: number;
   }) => {
+    const orderId = 'ord-' + Date.now();
     const orderCode = 'TH-' + Math.floor(1000 + Math.random() * 9000);
     const newOrder: Order = {
-      id: 'ord-' + Date.now(),
+      id: orderId,
       code: orderCode,
       customerName: orderData.customerName,
       customerPhone: orderData.customerPhone,
@@ -378,10 +381,128 @@ export default function App() {
     saveStoredProducts(updatedProducts);
     saveStoredTransactions(newTransactions);
 
-    // Đồng bộ lên server: đơn mới + tồn kho các sản phẩm trong đơn
-    apiClient.saveOrder(newOrder);
-    const changedIds = new Set(orderData.items.map((i) => i.productId));
-    syncProductsToApi(updatedProducts.filter((p) => changedIds.has(p.id)));
+    // Bán chịu: ghi nợ vào sổ nợ local ngay (optimistic), server đối chiếu sau
+    const isDebtSale = orderData.paymentMethod === 'DEBT' && orderData.debtorId;
+    if (isDebtSale) {
+      const debtTx: DebtTransaction = {
+        id: `dt-${orderId}`,
+        debtorId: orderData.debtorId!,
+        type: 'DEBT',
+        amount: newOrder.totalAmount,
+        balanceAfter: 0, // server tính lại và đối chiếu bên dưới
+        paymentMethod: 'DEBT',
+        note: `Bán chịu đơn ${orderCode}`,
+        createdAt: new Date().toISOString(),
+        items: orderData.items.map((it, idx) => ({
+          id: `dt-${orderId}-${it.productId}`,
+          productId: it.productId,
+          barcode: it.barcode,
+          productName: it.productName,
+          unit: it.unit,
+          quantity: it.quantity,
+          unitPrice: it.price,
+          totalPrice: it.price * it.quantity,
+        })),
+      };
+      setDebtors((prev) => {
+        const next = prev.map((d) =>
+          d.id === orderData.debtorId
+            ? {
+                ...d,
+                totalDebt: (d.totalDebt || 0) + newOrder.totalAmount,
+                status: 'ACTIVE' as const,
+                transactions: [...(d.transactions || []), debtTx],
+              }
+            : d
+        );
+        // Cập nhật balanceAfter cho đúng sau khi đã cộng
+        const me = next.find((d) => d.id === orderData.debtorId);
+        if (me) {
+          const tx = me.transactions!.find((t) => t.id === debtTx.id);
+          if (tx) tx.balanceAfter = me.totalDebt;
+        }
+        saveStoredDebtors(next);
+        return next;
+      });
+    }
+
+    // Đồng bộ lên server: 1 call checkout atomic (tạo đơn + trừ kho + ghi nợ).
+    // Server là source of truth — đối chiếu tồn kho/tổng nợ sau khi xong.
+    apiClient
+      .checkout({
+        id: newOrder.id,
+        code: newOrder.code,
+        customerName: newOrder.customerName,
+        customerPhone: newOrder.customerPhone,
+        customerAddress: newOrder.customerAddress,
+        deliveryType: newOrder.deliveryType,
+        paymentMethod: newOrder.paymentMethod,
+        note: newOrder.note || '',
+        items: orderData.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        debtorId: orderData.debtorId,
+      })
+      .then((res) => {
+        if (res.ok) {
+          if (res.stockUpdates && res.stockUpdates.length > 0) {
+            const map = new Map(res.stockUpdates.map((s) => [s.id, s]));
+            setProducts((prev) => {
+              const next = prev.map((p) => {
+                const u = map.get(p.id);
+                return u ? { ...p, stock: u.stock, soldCount: u.soldCount } : p;
+              });
+              saveStoredProducts(next);
+              return next;
+            });
+          }
+          if (res.order && typeof res.order.totalAmount === 'number') {
+            setOrders((prev) => {
+              const next = prev.map((o) =>
+                o.id === newOrder.id ? { ...o, totalAmount: res.order.totalAmount } : o
+              );
+              saveStoredOrders(next);
+              return next;
+            });
+            if (activeCustomerOrder?.id === newOrder.id) {
+              setActiveCustomerOrder((prev) =>
+                prev ? { ...prev, totalAmount: res.order.totalAmount } : prev
+              );
+            }
+          }
+          if (res.debtTransaction && orderData.debtorId) {
+            const srvTx = res.debtTransaction;
+            setDebtors((prev) => {
+              const next = prev.map((d) =>
+                d.id === orderData.debtorId
+                  ? {
+                      ...d,
+                      totalDebt: srvTx.balanceAfter,
+                      status: 'ACTIVE' as const,
+                      transactions: [
+                        ...(d.transactions || []).filter((t) => t.id !== srvTx.id),
+                        srvTx,
+                      ],
+                    }
+                  : d
+              );
+              saveStoredDebtors(next);
+              return next;
+            });
+          }
+        } else if (res.status === 409 && res.insufficient && res.insufficient.length > 0) {
+          // Kho không đủ (hiếm: 2 máy bán cùng lúc) — báo rõ món nào
+          const names = res.insufficient
+            .map((i) => `${i.name} (còn ${i.stock}, cần ${i.requested})`)
+            .join(', ');
+          setActiveToast({
+            id: 'toast-' + Date.now(),
+            type: 'STOCK_LOW',
+            title: 'Kho không đủ hàng',
+            message: `Đơn đã lưu tạm, nhưng server báo thiếu: ${names}. Vui lòng kiểm tra lại kho.`,
+            timestamp: new Date().toISOString(),
+            read: false,
+          });
+        }
+      });
 
     setOrders(updatedOrders);
     setProducts(updatedProducts);
@@ -828,6 +949,8 @@ export default function App() {
         cart={cart}
         products={products}
         settings={settings}
+        isOwner={mode === 'owner'}
+        debtors={debtors}
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onClearCart={handleClearCart}

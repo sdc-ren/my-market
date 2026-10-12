@@ -169,6 +169,49 @@ export const apiClient = {
     }
   },
 
+  // Thanh toán thống nhất: server tạo đơn + trừ kho + (bán chịu) ghi nợ, atomic.
+  async checkout(payload: {
+    id: string;
+    code: string;
+    customerName: string;
+    customerPhone: string;
+    customerAddress: string;
+    deliveryType: 'DELIVERY' | 'PICKUP';
+    paymentMethod: 'VIETQR' | 'CASH' | 'DEBT';
+    note: string;
+    items: { productId: string; quantity: number }[];
+    debtorId?: string;
+  }): Promise<{
+    ok: boolean;
+    status?: number;
+    order?: any;
+    stockUpdates?: { id: string; stock: number; soldCount: number }[];
+    debtTransaction?: any;
+    insufficient?: { productId: string; name: string; stock: number; requested: number }[];
+    error?: string;
+  }> {
+    try {
+      const res = await apiFetch('/api/orders?action=checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { ok: false, status: res.status, error: data?.error, insufficient: data?.items };
+      }
+      return {
+        ok: true,
+        order: data.order,
+        stockUpdates: data.stockUpdates,
+        debtTransaction: data.debtTransaction,
+      };
+    } catch (err) {
+      console.warn('Backend API checkout error:', err);
+      return { ok: false, error: 'network' };
+    }
+  },
+
   // 5. SETTINGS
   async getSettings(): Promise<StoreSettings | null> {
     try {

@@ -43,7 +43,7 @@ export interface InventoryTransaction {
 }
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PACKING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED';
-export type PaymentMethod = 'VIETQR' | 'CASH';
+export type PaymentMethod = 'VIETQR' | 'CASH' | 'DEBT';
 export type PaymentStatus = 'PENDING' | 'PAID';
 
 export interface OrderItem {
@@ -134,7 +134,7 @@ export interface DebtTransaction {
   type: DebtTransactionType; // 'DEBT': mua nợ, 'PAYMENT': trả tiền nợ
   amount: number;
   balanceAfter: number;
-  paymentMethod?: 'CASH' | 'VIETQR' | 'TRANSFER' | 'OTHER';
+  paymentMethod?: 'CASH' | 'VIETQR' | 'TRANSFER' | 'OTHER' | 'DEBT';
   note?: string;
   items?: DebtTransactionItem[];
   createdAt: string;

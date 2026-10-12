@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { Product, OrderItem, StoreSettings } from '../types';
+import { Product, OrderItem, StoreSettings, Debtor } from '../types';
 import { formatVND } from '../utils/vietqr';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, QrCode, Banknote, User, Phone, MapPin, AlertCircle } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, QrCode, Banknote, User, Phone, MapPin, AlertCircle, NotebookPen } from 'lucide-react';
 import { ProductImage } from './ProductImage';
 
 interface CartDrawerProps {
@@ -11,6 +11,8 @@ interface CartDrawerProps {
   cart: { [productId: string]: number };
   products: Product[];
   settings: StoreSettings;
+  isOwner: boolean;
+  debtors: Debtor[];
   onUpdateQuantity: (product: Product, delta: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
@@ -19,7 +21,8 @@ interface CartDrawerProps {
     customerPhone: string;
     customerAddress: string;
     deliveryType: 'DELIVERY' | 'PICKUP';
-    paymentMethod: 'VIETQR' | 'CASH';
+    paymentMethod: 'VIETQR' | 'CASH' | 'DEBT';
+    debtorId?: string;
     note: string;
     items: OrderItem[];
     totalAmount: number;
@@ -32,6 +35,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   cart,
   products,
   settings,
+  isOwner,
+  debtors,
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
@@ -41,7 +46,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [deliveryType, setDeliveryType] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY');
-  const [paymentMethod, setPaymentMethod] = useState<'VIETQR' | 'CASH'>('VIETQR');
+  const [paymentMethod, setPaymentMethod] = useState<'VIETQR' | 'CASH' | 'DEBT'>('VIETQR');
+  const [debtorId, setDebtorId] = useState('');
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -88,6 +94,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setFormError('Vui lòng nhập địa chỉ giao hàng');
       return;
     }
+    if (paymentMethod === 'DEBT' && !debtorId) {
+      setFormError('Vui lòng chọn khách nợ cho đơn bán chịu');
+      return;
+    }
 
     setFormError(null);
     onCheckout({
@@ -96,6 +106,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       customerAddress: deliveryType === 'PICKUP' ? 'Lấy hàng trực tiếp tại tiệm' : customerAddress.trim(),
       deliveryType,
       paymentMethod,
+      debtorId: paymentMethod === 'DEBT' ? debtorId : undefined,
       note: note.trim(),
       items: orderItems,
       totalAmount,
@@ -304,7 +315,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span className="text-xs font-bold text-slate-800 block">
                   Phương thức thanh toán:
                 </span>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${isOwner ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <label
                     className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
                       paymentMethod === 'VIETQR'
@@ -354,7 +365,56 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </span>
                     </div>
                   </label>
+
+                  {isOwner && (
+                    <label
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
+                        paymentMethod === 'DEBT'
+                          ? 'border-amber-500 bg-amber-50/70 text-amber-900 shadow-2xs'
+                          : 'border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === 'DEBT'}
+                        onChange={() => setPaymentMethod('DEBT')}
+                        className="text-amber-600"
+                      />
+                      <div className="flex flex-col text-xs font-semibold">
+                        <span className="flex items-center gap-1">
+                          <NotebookPen className="w-3.5 h-3.5 text-amber-600" />
+                          Ghi nợ
+                        </span>
+                        <span className="text-[10px] text-amber-700 font-normal">
+                          Bán chịu
+                        </span>
+                      </div>
+                    </label>
+                  )}
                 </div>
+
+                {isOwner && paymentMethod === 'DEBT' && (
+                  <div className="pt-1">
+                    <select
+                      value={debtorId}
+                      onChange={(e) => setDebtorId(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-amber-50/50 border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-800"
+                    >
+                      <option value="">— Chọn khách nợ —</option>
+                      {debtors.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}{d.phone ? ` (${d.phone})` : ''} — còn nợ {formatVND(d.totalDebt || 0)}
+                        </option>
+                      ))}
+                    </select>
+                    {debtors.length === 0 && (
+                      <p className="text-[11px] text-amber-700 mt-1">
+                        Chưa có khách nợ nào. Hãy thêm khách nợ trong Sổ nợ trước.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {formError && (
@@ -378,7 +438,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 id="btn-submit-order"
                 className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-98 transition shadow-md flex items-center justify-center gap-2"
               >
-                <span>{paymentMethod === 'VIETQR' ? 'Đặt hàng & Mở mã QR' : 'Xác nhận đặt hàng'}</span>
+                <span>
+                  {paymentMethod === 'VIETQR'
+                    ? 'Đặt hàng & Mở mã QR'
+                    : paymentMethod === 'DEBT'
+                      ? 'Xác nhận bán chịu'
+                      : 'Xác nhận đặt hàng'}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
