@@ -57,6 +57,34 @@ function Section({
   );
 }
 
+function GroupBlock({
+  index,
+  title,
+  desc,
+  children,
+}: {
+  index: string;
+  title: string;
+  desc: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mb-7 last:mb-2">
+      <div className="flex items-center gap-3 mb-3.5">
+        <span className="w-7 h-7 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center shrink-0">
+          {index}
+        </span>
+        <div className="shrink-0">
+          <h3 className="text-sm font-black text-slate-900 leading-tight">{title}</h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">{desc}</p>
+        </div>
+        <div className="flex-1 h-px bg-slate-200 min-w-4" aria-hidden />
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">{children}</div>
+    </section>
+  );
+}
+
 export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, onSave }) => {
   const [form, setForm] = useState<StoreSettings>({ ...settings });
   const [savedTick, setSavedTick] = useState(false);
@@ -173,13 +201,13 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
   };
 
   return (
-    <div className="animate-fadeIn max-w-6xl mx-auto">
+    <div className="animate-fadeIn">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-black text-slate-900">Cấu hình cửa hàng</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tên, logo và các thông tin hiển thị trên website & mã VietQR.
+            Mọi thứ về tiệm của bạn — hiển thị, thanh toán, giao hàng và cảnh báo.
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -200,8 +228,7 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
         </div>
       </div>
 
-      {/* Sections: 2 cột cân đối trên desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+<GroupBlock index="01" title="Cửa hàng của bạn" desc="Những gì khách hàng nhìn thấy về tiệm.">
       {/* 1. Thương hiệu */}
       <Section
         icon={<Store className="w-4 h-4" />}
@@ -285,7 +312,6 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
           </div>
         </div>
       </Section>
-
       {/* 2. Liên hệ */}
       <Section
         icon={<Phone className="w-4 h-4" />}
@@ -311,7 +337,6 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
           />
         </div>
       </Section>
-
       {/* 3. Giờ mở cửa */}
       <Section
         icon={<Clock className="w-4 h-4" />}
@@ -371,7 +396,9 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
           </button>
         </div>
       </Section>
+</GroupBlock>
 
+      <GroupBlock index="02" title="Thanh toán & giao hàng" desc="Tiền về tài khoản nào, phí ship tính ra sao.">
       {/* 4. VietQR */}
       <Section
         icon={<QrCode className="w-4 h-4" />}
@@ -406,59 +433,6 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
           />
         </div>
       </Section>
-
-      {/* 5. Cảnh báo kho */}
-      <Section
-        icon={<Bell className="w-4 h-4" />}
-        title="Cảnh báo kho & hạn dùng"
-        desc="Ngưỡng để hệ thống gắn cờ sắp hết hàng / cận date."
-      >
-        <div>
-          <label className={labelCls}>Ngưỡng tồn kho thấp (sản phẩm)</label>
-          <NumberInput
-            format="plain"
-            emptyWhenZero={false}
-            className={inputCls}
-            value={form.lowStockThreshold}
-            onChange={(d) => set('lowStockThreshold', Math.max(1, Number(d) || 1))}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Cảnh báo HSD trước (ngày)</label>
-          <NumberInput
-            format="plain"
-            emptyWhenZero={false}
-            className={inputCls}
-            value={form.expiryWarningDays}
-            onChange={(d) => set('expiryWarningDays', Math.max(1, Number(d) || 1))}
-          />
-        </div>
-      </Section>
-
-      {/* 6. Bảo mật */}
-      <Section
-        icon={<Lock className="w-4 h-4" />}
-        title="Bảo mật quản lý"
-        desc="Mã PIN để mở khu vực quản lý. PIN được mã hoá ở server, không hiển thị lại."
-      >
-        <div>
-          <label className={labelCls}>Đổi mã PIN mới (4–8 số)</label>
-          <input
-            className={inputCls}
-            value={form.ownerPin || ''}
-            onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 8))}
-            placeholder="Để trống nếu giữ PIN hiện tại"
-            inputMode="numeric"
-            autoComplete="off"
-          />
-        </div>
-        <div className="flex items-end">
-          <p className="text-[11px] text-slate-400 pb-2">
-            Đổi PIN xong nhớ bấm <strong className="text-slate-600">Lưu cấu hình</strong> ở trên.
-          </p>
-        </div>
-      </Section>
-
       {/* 7. Phí giao hàng */}
       <Section
         icon={<Truck className="w-4 h-4" />}
@@ -517,6 +491,10 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
             <LocateFixed className="w-3.5 h-3.5" />
             {geoLoading ? 'Đang tìm tọa độ...' : 'Lấy tọa độ từ địa chỉ cửa hàng'}
           </button>
+          <p className="text-[11px] text-slate-400 mt-1.5">
+            Dùng địa chỉ ở mục <strong className="text-slate-600">Thông tin liên hệ</strong>:
+            {form.address.trim() ? ` “${form.address.trim()}”` : ' (chưa nhập địa chỉ)'}
+          </p>
           {geoError && <p className="text-[11px] text-rose-600 mt-1.5">{geoError}</p>}
           {geoOk && <p className="text-[11px] text-emerald-700 mt-1.5">Đã lấy tọa độ — nhớ bấm Lưu cấu hình.</p>}
         </div>
@@ -576,7 +554,60 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
           </p>
         </div>
       </Section>
-      </div>
+</GroupBlock>
+
+      <GroupBlock index="03" title="Vận hành & bảo mật" desc="Hệ thống tự cảnh báo, ai được vào khu quản lý.">
+      {/* 5. Cảnh báo kho */}
+      <Section
+        icon={<Bell className="w-4 h-4" />}
+        title="Cảnh báo kho & hạn dùng"
+        desc="Ngưỡng để hệ thống gắn cờ sắp hết hàng / cận date."
+      >
+        <div>
+          <label className={labelCls}>Ngưỡng tồn kho thấp (sản phẩm)</label>
+          <NumberInput
+            format="plain"
+            emptyWhenZero={false}
+            className={inputCls}
+            value={form.lowStockThreshold}
+            onChange={(d) => set('lowStockThreshold', Math.max(1, Number(d) || 1))}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Cảnh báo HSD trước (ngày)</label>
+          <NumberInput
+            format="plain"
+            emptyWhenZero={false}
+            className={inputCls}
+            value={form.expiryWarningDays}
+            onChange={(d) => set('expiryWarningDays', Math.max(1, Number(d) || 1))}
+          />
+        </div>
+      </Section>
+      {/* 6. Bảo mật */}
+      <Section
+        icon={<Lock className="w-4 h-4" />}
+        title="Bảo mật quản lý"
+        desc="Mã PIN để mở khu vực quản lý. PIN được mã hoá ở server, không hiển thị lại."
+      >
+        <div>
+          <label className={labelCls}>Đổi mã PIN mới (4–8 số)</label>
+          <input
+            className={inputCls}
+            value={form.ownerPin || ''}
+            onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 8))}
+            placeholder="Để trống nếu giữ PIN hiện tại"
+            inputMode="numeric"
+            autoComplete="off"
+          />
+        </div>
+        <div className="flex items-end">
+          <p className="text-[11px] text-slate-400 pb-2">
+            Đổi PIN xong nhớ bấm <strong className="text-slate-600">Lưu cấu hình</strong> ở trên.
+          </p>
+        </div>
+      </Section>
+</GroupBlock>
 
       {/* Địa chỉ icon */}
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-4">
