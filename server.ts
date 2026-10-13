@@ -7,6 +7,7 @@ import { db } from './src/db';
 import * as schema from './src/db/schema';
 import { requireAuth, hashPin, verifyPin, isHashedPin, buildSessionCookie, buildClearSessionCookie, isAuthenticated, checkRateLimit, resetRateLimit, getClientIp } from './api/_auth.js';
 import { isStorageConfigured, uploadImageToStorage, deleteImageByUrl } from './api/_storage.js';
+import { haversineM, calcDeliveryFee, geocodeAddress } from './api/_geo.js';
 import { eq, desc, inArray } from 'drizzle-orm';
 import { STORE_CATEGORIES, INITIAL_PRODUCTS, INITIAL_DEBTORS, DEFAULT_STORE_SETTINGS } from './src/data/mockData';
 
@@ -485,6 +486,7 @@ app.get('/api/orders', async (req: Request, res: Response) => {
         customerPhone: o.customerPhone || '',
         customerAddress: o.customerAddress || '',
         deliveryType: o.deliveryType || 'PICKUP',
+        deliveryFee: (o as any).deliveryFee || 0,
         totalAmount: o.totalAmount,
         paymentMethod: o.paymentMethod || 'CASH',
         paymentStatus: o.paymentStatus || 'PENDING',
@@ -504,6 +506,34 @@ app.get('/api/orders', async (req: Request, res: Response) => {
 });
 
 app.post('/api/orders', async (req: Request, res: Response) => {
+  // POST /api/orders?action=delivery-fee — tính phí giao hàng từ địa chỉ (public)
+  if (req.query.action === 'delivery-fee') {
+    try {
+      const address = (((req.body as any)?.address) || '').trim();
+      if (!address) return res.status(400).json({ error: 'Thiếu địa chỉ giao hàng' });
+      if (!db) return res.status(503).json({ error: 'Database unavailable' });
+      const apiKey = process.env.GEOAPIFY_API_KEY || '';
+      if (!apiKey) return res.status(503).json({ error: 'Chưa cấu hình GEOAPIFY_API_KEY' });
+      const rows = await db.select().from(schema.storeSettings).limit(1);
+      const st = rows[0] as any;
+      const shopLat = Number(st?.shopLat);
+      const shopLon = Number(st?.shopLon);
+      if (!st || !isFinite(shopLat) || !isFinite(shopLon)) {
+        return res.status(400).json({ error: 'Cửa hàng chưa cài tọa độ — vào Cài đặt để lấy tọa độ' });
+      }
+      const geo = await geocodeAddress(address, apiKey);
+      if (!geo) return res.status(404).json({ error: 'Không tìm thấy địa chỉ này trên bản đồ, thử ghi rõ hơn' });
+      const distanceM = Math.round(haversineM(shopLat, shopLon, geo.lat, geo.lon));
+      const { fee, beyondZones } = calcDeliveryFee(
+        distanceM,
+        (st.deliveryFeeZones || []) as { upToM: number; fee: number }[],
+        Number(st.deliveryExtraPerKm) || 0
+      );
+      return res.json({ distanceM, fee, beyondZones, formattedAddress: geo.formatted });
+    } catch (error: any) {
+      return res.status(502).json({ error: 'Lỗi tính phí giao hàng' });
+    }
+  }
   // POST /api/orders?action=checkout — THANH TOÁN THỐNG NHẤT (atomic).
   // Xem chú thích chi tiết trong api/orders.ts (bản Vercel).
   if (req.query.action === 'checkout') {
@@ -512,6 +542,9 @@ app.post('/api/orders', async (req: Request, res: Response) => {
         id, code, customerName, customerPhone, customerAddress,
         deliveryType, paymentMethod, note, items, debtorId,
       } = req.body || {};
+      const deliveryFee = deliveryType === 'DELIVERY'
+        ? Math.max(0, Math.floor(Number((req.body || {}).deliveryFee) || 0))
+        : 0;
       if (!id || !code) return res.status(400).json({ error: 'Missing order id or code' });
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'Empty cart' });
@@ -560,6 +593,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
         if (insufficient.length > 0) {
           return res.status(409).json({ error: 'Insufficient stock', items: insufficient });
         }
+        totalAmount += deliveryFee;
 
         let debtor: (typeof schema.debtors.$inferSelect) | null = null;
         if (method === 'DEBT') {
@@ -582,6 +616,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
             customerPhone: customerPhone || '',
             customerAddress: customerAddress || '',
             deliveryType: deliveryType || 'PICKUP',
+            deliveryFee,
             totalAmount,
             paymentMethod: method,
             paymentStatus: 'PENDING',
@@ -670,7 +705,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
         return res.json({
           success: true,
           order: {
-            id, code, customerName: customerName || '', totalAmount,
+            id, code, customerName: customerName || '', totalAmount, deliveryFee,
             paymentMethod: method, paymentStatus: 'PENDING',
             orderStatus: ownerApproved ? 'CONFIRMED' : 'PENDING',
           },
@@ -780,11 +815,11 @@ app.get('/api/settings', async (req: Request, res: Response) => {
       if (result.length > 0) {
         // KHÔNG bao giờ trả ownerPin ra ngoài
         const { ownerPin: _pin, ...publicSettings } = result[0] as any;
-        return res.json(publicSettings);
+        return res.json({ ...publicSettings, geoapifyConfigured: !!process.env.GEOAPIFY_API_KEY });
       }
     }
     const { ownerPin: _pin2, ...publicDefaults } = DEFAULT_STORE_SETTINGS as any;
-    return res.json(publicDefaults);
+    return res.json({ ...publicDefaults, geoapifyConfigured: !!process.env.GEOAPIFY_API_KEY });
   } catch (error: any) {
     console.error('Error fetching settings:', error);
     return res.json(DEFAULT_STORE_SETTINGS);
@@ -792,6 +827,21 @@ app.get('/api/settings', async (req: Request, res: Response) => {
 });
 
 app.post('/api/settings', async (req: Request, res: Response) => {
+  // ?action=geocode — địa chỉ → tọa độ (chỉ quản lý)
+  if (req.query.action === 'geocode') {
+    if (!requireAuth(req, res)) return;
+    const apiKey = process.env.GEOAPIFY_API_KEY || '';
+    if (!apiKey) return res.status(503).json({ error: 'Chưa cấu hình GEOAPIFY_API_KEY' });
+    const address = ((req.body as any)?.address || '').trim();
+    if (!address) return res.status(400).json({ error: 'Thiếu địa chỉ' });
+    try {
+      const geo = await geocodeAddress(address, apiKey);
+      if (!geo) return res.status(404).json({ error: 'Không tìm thấy tọa độ cho địa chỉ này' });
+      return res.json(geo);
+    } catch (error: any) {
+      return res.status(502).json({ error: 'Lỗi gọi Geoapify' });
+    }
+  }
   if (!requireAuth(req, res)) return;
   try {
     const s = req.body;
@@ -815,6 +865,10 @@ app.post('/api/settings', async (req: Request, res: Response) => {
         expiryWarningDays: s.expiryWarningDays ?? cur?.expiryWarningDays ?? 30,
         logoUrl: s.logoUrl ?? cur?.logoUrl ?? '',
         businessHours: s.businessHours ?? cur?.businessHours ?? [],
+        shopLat: s.shopLat ?? cur?.shopLat ?? null,
+        shopLon: s.shopLon ?? cur?.shopLon ?? null,
+        deliveryFeeZones: s.deliveryFeeZones ?? cur?.deliveryFeeZones ?? [],
+        deliveryExtraPerKm: s.deliveryExtraPerKm ?? cur?.deliveryExtraPerKm ?? 5000,
       };
       await db
         .insert(schema.storeSettings)

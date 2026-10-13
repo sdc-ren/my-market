@@ -319,6 +319,7 @@ export default function App() {
     customerPhone: string;
     customerAddress: string;
     deliveryType: 'DELIVERY' | 'PICKUP';
+    deliveryFee: number;
     paymentMethod: 'VIETQR' | 'CASH' | 'DEBT';
     debtorId?: string;
     note: string;
@@ -336,8 +337,9 @@ export default function App() {
       customerPhone: orderData.customerPhone,
       customerAddress: orderData.customerAddress,
       deliveryType: orderData.deliveryType,
+      deliveryFee: orderData.deliveryFee || 0,
       items: orderData.items,
-      totalAmount: orderData.totalAmount,
+      totalAmount: orderData.totalAmount + (orderData.deliveryFee || 0),
       paymentMethod: orderData.paymentMethod,
       paymentStatus: 'PENDING',
       orderStatus: ownerApproved ? 'CONFIRMED' : 'PENDING',
@@ -438,6 +440,7 @@ export default function App() {
         customerPhone: newOrder.customerPhone,
         customerAddress: newOrder.customerAddress,
         deliveryType: newOrder.deliveryType,
+        deliveryFee: newOrder.deliveryFee || 0,
         paymentMethod: newOrder.paymentMethod,
         note: newOrder.note || '',
         items: orderData.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),

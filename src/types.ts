@@ -64,6 +64,7 @@ export interface Order {
   customerPhone: string;
   customerAddress: string;
   deliveryType: 'DELIVERY' | 'PICKUP';
+  deliveryFee?: number; // Phí giao hàng (đ), 0 nếu lấy tại tiệm
   items: OrderItem[];
   totalAmount: number;
   paymentMethod: PaymentMethod;
@@ -108,6 +109,17 @@ export interface StoreSettings {  storeName: string;
   ownerPin?: string; // PIN bảo mật quản lý (mặc định '1234')
   logoUrl?: string; // URL logo cửa hàng (hiện ở navbar)
   businessHours?: BusinessHour[]; // Các khung giờ mở cửa mỗi ngày
+  shopLat?: number | null; // Vĩ độ cửa hàng (tính phí ship)
+  shopLon?: number | null; // Kinh độ cửa hàng (tính phí ship)
+  deliveryFeeZones?: DeliveryFeeZone[]; // Bảng phí ship theo khoảng cách
+  deliveryExtraPerKm?: number; // Phụ thu mỗi km vượt quá vùng xa nhất (0 = tự thỏa thuận)
+  geoapifyConfigured?: boolean; // Server báo: đã có GEOAPIFY_API_KEY hay chưa (không phải key)
+}
+
+/** Một nấc phí ship: khoảng cách ≤ upToM mét thì phí = fee (đ) */
+export interface DeliveryFeeZone {
+  upToM: number;
+  fee: number;
 }
 
 // ==============================================================================

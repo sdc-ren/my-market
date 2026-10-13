@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { NumberInput } from './ui/NumberInput';
-import { StoreSettings, BusinessHour } from '../types';
+import { StoreSettings, BusinessHour, DeliveryFeeZone } from '../types';
+import { apiClient } from '../utils/apiClient';
 import {
   Store,
   Phone,
@@ -16,6 +17,8 @@ import {
   Clock,
   Plus,
   Trash2,
+  Truck,
+  LocateFixed,
 } from 'lucide-react';
 
 interface StoreSettingsViewProps {
@@ -67,6 +70,46 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
     setSavedTick(false);
   };
 
+  // ---- Phí giao hàng theo khoảng cách (Geoapify) ----
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [geoOk, setGeoOk] = useState(false);
+  const zones: DeliveryFeeZone[] = form.deliveryFeeZones ?? [];
+
+  const setZones = (next: DeliveryFeeZone[]) => {
+    setForm((prev) => ({ ...prev, deliveryFeeZones: next }));
+    setSavedTick(false);
+  };
+  const updateZone = (idx: number, patch: Partial<DeliveryFeeZone>) => {
+    setZones(zones.map((z, i) => (i === idx ? { ...z, ...patch } : z)));
+  };
+  const addZone = () => {
+    const lastUpTo = zones.length > 0 ? Math.max(...zones.map((z) => Number(z.upToM) || 0)) : 0;
+    setZones([...zones, { upToM: lastUpTo + 1000, fee: 15000 }]);
+  };
+  const removeZone = (idx: number) => {
+    setZones(zones.filter((_, i) => i !== idx));
+  };
+  const handleGetCoords = async () => {
+    if (!form.address.trim() || geoLoading) return;
+    setGeoLoading(true);
+    setGeoError(null);
+    setGeoOk(false);
+    const res = await apiClient.geocodeAddress(form.address.trim());
+    setGeoLoading(false);
+    if (!res.ok || res.lat == null || res.lon == null) {
+      setGeoError(
+        res.error === 'Chưa cấu hình GEOAPIFY_API_KEY'
+          ? 'Chưa có API key Geoapify — thêm GEOAPIFY_API_KEY vào server rồi thử lại.'
+          : 'Không tìm thấy tọa độ cho địa chỉ này, thử ghi rõ hơn.'
+      );
+      return;
+    }
+    setForm((prev) => ({ ...prev, shopLat: res.lat as number, shopLon: res.lon as number }));
+    setSavedTick(false);
+    setGeoOk(true);
+  };
+
   // Khung giờ mở cửa (nhiều mốc mỗi ngày: sáng/chiều...)
   const hours: BusinessHour[] = form.businessHours ?? [];
   const updateHour = (idx: number, patch: Partial<BusinessHour>) => {
@@ -109,7 +152,14 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
   const handleSave = async () => {
     setSaving(true);
     setSaveError(false);
-    const ok = await onSave({ ...form, storeName: form.storeName.trim() || settings.storeName });
+    const sortedZones = [...(form.deliveryFeeZones ?? [])]
+      .filter((z) => Number(z.upToM) > 0)
+      .sort((a, b) => Number(a.upToM) - Number(b.upToM));
+    const ok = await onSave({
+      ...form,
+      storeName: form.storeName.trim() || settings.storeName,
+      deliveryFeeZones: sortedZones,
+    });
     setSaving(false);
     if (ok) {
       // Xoá PIN vừa nhập khỏi form sau khi lưu (không giữ plaintext trong state)
@@ -405,6 +455,124 @@ export const StoreSettingsView: React.FC<StoreSettingsViewProps> = ({ settings, 
         <div className="flex items-end">
           <p className="text-[11px] text-slate-400 pb-2">
             Đổi PIN xong nhớ bấm <strong className="text-slate-600">Lưu cấu hình</strong> ở trên.
+          </p>
+        </div>
+      </Section>
+
+      {/* 7. Phí giao hàng */}
+      <Section
+        icon={<Truck className="w-4 h-4" />}
+        title="Phí giao hàng"
+        desc="Tính tự động theo khoảng cách từ tiệm (Geoapify). Khách chọn 'Giao tận nơi' sẽ thấy nút tính phí."
+      >
+        <div className="sm:col-span-2">
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold ${
+            form.geoapifyConfigured
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-amber-50 border-amber-200 text-amber-800'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${form.geoapifyConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {form.geoapifyConfigured
+              ? 'Đã gắn API key Geoapify — tính phí tự động đang bật.'
+              : 'Chưa có API key Geoapify — thêm GEOAPIFY_API_KEY vào server để bật tính tự động (vẫn nhập phí tay được).'}
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Vĩ độ cửa hàng (lat)</label>
+          <input
+            className={inputCls}
+            value={form.shopLat ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9.\-]/g, '');
+              setForm((prev) => ({ ...prev, shopLat: v === '' ? null : Number(v) }));
+              setSavedTick(false);
+            }}
+            placeholder="VD: 10.762622"
+            inputMode="decimal"
+            autoComplete="off"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Kinh độ cửa hàng (lon)</label>
+          <input
+            className={inputCls}
+            value={form.shopLon ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9.\-]/g, '');
+              setForm((prev) => ({ ...prev, shopLon: v === '' ? null : Number(v) }));
+              setSavedTick(false);
+            }}
+            placeholder="VD: 106.660172"
+            inputMode="decimal"
+            autoComplete="off"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <button
+            type="button"
+            onClick={handleGetCoords}
+            disabled={geoLoading || !form.address.trim()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-700 disabled:opacity-50 transition"
+          >
+            <LocateFixed className="w-3.5 h-3.5" />
+            {geoLoading ? 'Đang tìm tọa độ...' : 'Lấy tọa độ từ địa chỉ cửa hàng'}
+          </button>
+          {geoError && <p className="text-[11px] text-rose-600 mt-1.5">{geoError}</p>}
+          {geoOk && <p className="text-[11px] text-emerald-700 mt-1.5">Đã lấy tọa độ — nhớ bấm Lưu cấu hình.</p>}
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Bảng phí theo khoảng cách (tính từ tiệm)</label>
+          <div className="space-y-2">
+            {zones.map((z, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 shrink-0">Đến</span>
+                <NumberInput
+                  format="plain"
+                  value={z.upToM}
+                  onChange={(d) => updateZone(i, { upToM: Number(d) || 0 })}
+                  placeholder="m"
+                  aria-label="Khoảng cách tối đa (m)"
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <span className="text-xs text-slate-500 shrink-0">m → phí</span>
+                <NumberInput
+                  value={z.fee}
+                  onChange={(d) => updateZone(i, { fee: Number(d) || 0 })}
+                  placeholder="0"
+                  aria-label="Phí ship (đ)"
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <span className="text-xs text-slate-500 shrink-0">đ</span>
+                <button
+                  type="button"
+                  onClick={() => removeZone(i)}
+                  aria-label="Xoá nấc giá"
+                  className="w-8 h-8 shrink-0 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addZone}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-slate-300 text-slate-600 text-xs font-bold hover:border-emerald-400 hover:text-emerald-700 transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Thêm nấc giá
+            </button>
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Vượt quá nấc xa nhất: phụ thu mỗi km (đ)</label>
+          <NumberInput
+            value={form.deliveryExtraPerKm ?? 5000}
+            onChange={(d) => set('deliveryExtraPerKm', Number(d) || 0)}
+            placeholder="5000"
+            className={inputCls}
+          />
+          <p className="text-[11px] text-slate-400 mt-1">
+            Để 0 = ngoài vùng giá thì shop tự thỏa thuận với khách (phí giữ nguyên nấc cuối).
           </p>
         </div>
       </Section>

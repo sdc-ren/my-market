@@ -183,6 +183,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 {formatVND(order.totalAmount)}
               </span>
             </div>
+            {(order.deliveryFee || 0) > 0 && (
+              <p className="text-[11px] text-slate-500 text-right -mt-1">
+                (đã gồm phí giao hàng {formatVND(order.deliveryFee || 0)})
+              </p>
+            )}
           </div>
         </div>
 

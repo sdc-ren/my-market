@@ -1,6 +1,6 @@
-import { pgTable, text, integer, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, jsonb, doublePrecision } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import type { BusinessHour } from '../types';
+import type { BusinessHour, DeliveryFeeZone } from '../types';
 
 // -----------------------------------------------------------------------------
 // 1. CATEGORIES (Danh mục hàng hóa)
@@ -95,6 +95,7 @@ export const orders = pgTable('orders', {
   customerPhone: text('customer_phone').default(''),
   customerAddress: text('customer_address').default(''),
   deliveryType: text('delivery_type').default('PICKUP'),
+  deliveryFee: integer('delivery_fee').notNull().default(0),
   totalAmount: integer('total_amount').notNull().default(0),
   paymentMethod: text('payment_method').default('CASH'),
   paymentStatus: text('payment_status').default('PENDING'),
@@ -137,6 +138,10 @@ export const storeSettings = pgTable('store_settings', {
   ownerPin: text('owner_pin').default('1234'),
   logoUrl: text('logo_url').default(''),
   businessHours: jsonb('business_hours').$type<BusinessHour[]>().default([]),
+  shopLat: doublePrecision('shop_lat'),
+  shopLon: doublePrecision('shop_lon'),
+  deliveryFeeZones: jsonb('delivery_fee_zones').$type<DeliveryFeeZone[]>().default([]),
+  deliveryExtraPerKm: integer('delivery_extra_per_km').default(5000),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 

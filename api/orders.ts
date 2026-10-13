@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from './_db.js';
 import { requireAuth, isAuthenticated } from './_auth.js';
+import { haversineM, calcDeliveryFee, geocodeAddress } from './_geo.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           customerPhone: o.customerPhone || '',
           customerAddress: o.customerAddress || '',
           deliveryType: o.deliveryType || 'PICKUP',
+          deliveryFee: o.deliveryFee || 0,
           totalAmount: o.totalAmount,
           paymentMethod: o.paymentMethod || 'CASH',
           paymentStatus: o.paymentStatus || 'PENDING',
@@ -61,6 +63,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ---------------------------------------------------------------------------
   if (req.method === 'POST' && req.query.action === 'checkout') {
     return handleCheckout(req, res);
+  }
+
+  // ---------------------------------------------------------------------------
+  // POST /api/orders?action=delivery-fee — tính phí giao hàng từ địa chỉ.
+  // Public (khách vãng lai cũng cần xem phí trước khi đặt). Body: { address }.
+  // ---------------------------------------------------------------------------
+  if (req.method === 'POST' && req.query.action === 'delivery-fee') {
+    try {
+      const address = ((req.body as any)?.address || '').trim();
+      if (!address) return res.status(400).json({ error: 'Thiếu địa chỉ giao hàng' });
+      if (!db) return res.status(503).json({ error: 'Database unavailable' });
+      const apiKey = process.env.GEOAPIFY_API_KEY || '';
+      if (!apiKey) return res.status(503).json({ error: 'Chưa cấu hình GEOAPIFY_API_KEY' });
+
+      const rows = await db.select().from(schema.storeSettings).limit(1);
+      const st = rows[0] as any;
+      const shopLat = Number(st?.shopLat);
+      const shopLon = Number(st?.shopLon);
+      if (!st || !isFinite(shopLat) || !isFinite(shopLon)) {
+        return res.status(400).json({ error: 'Cửa hàng chưa cài tọa độ — vào Cài đặt để lấy tọa độ' });
+      }
+
+      const geo = await geocodeAddress(address, apiKey);
+      if (!geo) return res.status(404).json({ error: 'Không tìm thấy địa chỉ này trên bản đồ, thử ghi rõ hơn' });
+
+      const distanceM = Math.round(haversineM(shopLat, shopLon, geo.lat, geo.lon));
+      const { fee, beyondZones } = calcDeliveryFee(
+        distanceM,
+        (st.deliveryFeeZones || []) as { upToM: number; fee: number }[],
+        Number(st.deliveryExtraPerKm) || 0
+      );
+      return res.json({ distanceM, fee, beyondZones, formattedAddress: geo.formatted });
+    } catch (error: any) {
+      console.error('Error calculating delivery fee:', error);
+      return res.status(502).json({ error: 'Lỗi tính phí giao hàng' });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -102,6 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               customerPhone: order.customerPhone || '',
               customerAddress: order.customerAddress || '',
               deliveryType: order.deliveryType || 'PICKUP',
+              deliveryFee: Math.max(0, Math.floor(Number(order.deliveryFee) || 0)),
               totalAmount: order.totalAmount || 0,
               paymentMethod: order.paymentMethod || 'CASH',
               paymentStatus: order.paymentStatus || 'PENDING',
@@ -115,6 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 customerPhone: order.customerPhone,
                 customerAddress: order.customerAddress,
                 deliveryType: order.deliveryType,
+                deliveryFee: Math.max(0, Math.floor(Number(order.deliveryFee) || 0)),
                 totalAmount: order.totalAmount,
                 paymentMethod: order.paymentMethod,
                 paymentStatus: order.paymentStatus,
@@ -180,6 +220,11 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Empty cart' });
     }
+    // Phí giao hàng do client tính (từ bảng giá cài đặt) / chủ quán sửa tay.
+    // Đơn khách vãng lai ở trạng thái PENDING nên chủ quán vẫn duyệt lại được.
+    const deliveryFee = deliveryType === 'DELIVERY'
+      ? Math.max(0, Math.floor(Number((req.body || {}).deliveryFee) || 0))
+      : 0;
     const method = paymentMethod || 'CASH';
     if (!['CASH', 'VIETQR', 'DEBT'].includes(method)) {
       return res.status(400).json({ error: 'Invalid payment method' });
@@ -226,6 +271,8 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
       if (insufficient.length > 0) {
         return res.status(409).json({ error: 'Insufficient stock', items: insufficient });
       }
+      // Cộng phí giao hàng vào tổng đơn
+      totalAmount += deliveryFee;
 
       // Kiểm tra khách nợ (nếu bán chịu)
       let debtor: (typeof schema.debtors.$inferSelect) | null = null;
@@ -250,6 +297,7 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
           customerPhone: customerPhone || '',
           customerAddress: customerAddress || '',
           deliveryType: deliveryType || 'PICKUP',
+          deliveryFee,
           totalAmount,
           paymentMethod: method,
           paymentStatus: 'PENDING',
@@ -341,7 +389,7 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
       return res.json({
         success: true,
         order: {
-          id, code, customerName: customerName || '', totalAmount,
+          id, code, customerName: customerName || '', totalAmount, deliveryFee,
           paymentMethod: method, paymentStatus: 'PENDING',
           orderStatus: ownerApproved ? 'CONFIRMED' : 'PENDING',
         },

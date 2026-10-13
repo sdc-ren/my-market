@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { Product, OrderItem, StoreSettings, Debtor } from '../types';
 import { formatVND } from '../utils/vietqr';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, QrCode, Banknote, User, Phone, MapPin, AlertCircle, NotebookPen } from 'lucide-react';
+import { apiClient } from '../utils/apiClient';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, QrCode, Banknote, User, Phone, MapPin, AlertCircle, NotebookPen, Truck, Calculator } from 'lucide-react';
 import { ProductImage } from './ProductImage';
+import { NumberInput } from './ui/NumberInput';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -21,6 +23,7 @@ interface CartDrawerProps {
     customerPhone: string;
     customerAddress: string;
     deliveryType: 'DELIVERY' | 'PICKUP';
+    deliveryFee: number;
     paymentMethod: 'VIETQR' | 'CASH' | 'DEBT';
     debtorId?: string;
     note: string;
@@ -28,6 +31,10 @@ interface CartDrawerProps {
     totalAmount: number;
   }) => void;
 }
+
+/** 850 -> "850 m" | 1250 -> "1,3 km" */
+const formatDistance = (m: number): string =>
+  m < 1000 ? `${m} m` : `${(m / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km`;
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
@@ -50,6 +57,44 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [debtorId, setDebtorId] = useState('');
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  // Phí giao hàng
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [feeDistanceM, setFeeDistanceM] = useState<number | null>(null);
+  const [feeBeyondZones, setFeeBeyondZones] = useState(false);
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [feeError, setFeeError] = useState<string | null>(null);
+  const [feeManual, setFeeManual] = useState(false);
+
+  const canAutoFee =
+    !!settings.geoapifyConfigured && settings.shopLat != null && settings.shopLon != null;
+
+  const handleAddressChange = (v: string) => {
+    setCustomerAddress(v);
+    // Địa chỉ đổi → phí cũ không còn đúng, reset để tính lại
+    setDeliveryFee(0);
+    setFeeDistanceM(null);
+    setFeeBeyondZones(false);
+    setFeeError(null);
+    setFeeManual(false);
+  };
+
+  const handleCalcFee = async () => {
+    if (!customerAddress.trim() || feeLoading) return;
+    setFeeLoading(true);
+    setFeeError(null);
+    const res = await apiClient.getDeliveryFee(customerAddress.trim());
+    setFeeLoading(false);
+    if (!res.ok) {
+      setFeeError(res.error === 'Chưa cấu hình GEOAPIFY_API_KEY'
+        ? 'Chưa có API key Geoapify — nhập phí tay bên dưới.'
+        : res.error || 'Không tính được phí ship — nhập tay bên dưới.');
+      return;
+    }
+    setDeliveryFee(res.fee || 0);
+    setFeeDistanceM(res.distanceM ?? null);
+    setFeeBeyondZones(!!res.beyondZones);
+    setFeeManual(false);
+  };
 
   useLockBodyScroll(isOpen);
   if (!isOpen) return null;
@@ -105,6 +150,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       customerPhone: customerPhone.trim(),
       customerAddress: deliveryType === 'PICKUP' ? 'Lấy hàng trực tiếp tại tiệm' : customerAddress.trim(),
       deliveryType,
+      deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
       paymentMethod,
       debtorId: paymentMethod === 'DEBT' ? debtorId : undefined,
       note: note.trim(),
@@ -289,16 +335,66 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     />
                   </div>
                   {deliveryType === 'DELIVERY' && (
-                    <div className="relative">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        placeholder="Địa chỉ giao hàng (số nhà, phòng, ngõ...) *"
-                        value={customerAddress}
-                        onChange={(e) => setCustomerAddress(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
+                    <>
+                      <div className="relative">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          placeholder="Địa chỉ giao hàng (số nhà, phòng, ngõ...) *"
+                          value={customerAddress}
+                          onChange={(e) => handleAddressChange(e.target.value)}
+                          className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      {/* Phí giao hàng */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                            <Truck className="w-3.5 h-3.5 text-emerald-600" />
+                            Phí giao hàng
+                          </span>
+                          {canAutoFee && (
+                            <button
+                              type="button"
+                              onClick={handleCalcFee}
+                              disabled={feeLoading || !customerAddress.trim()}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                              <Calculator className="w-3 h-3" />
+                              {feeLoading ? 'Đang tính...' : 'Tính tự động'}
+                            </button>
+                          )}
+                        </div>
+                        {feeError && (
+                          <p className="text-[11px] text-rose-600">{feeError}</p>
+                        )}
+                        {feeDistanceM != null && !feeManual && (
+                          <p className="text-[11px] text-slate-600">
+                            Cách shop ~{formatDistance(feeDistanceM)}
+                            {feeBeyondZones ? ' (ngoài vùng giá, tính thêm theo km)' : ''} ·{' '}
+                            phí <span className="font-bold text-emerald-700">{formatVND(deliveryFee)}</span>
+                          </p>
+                        )}
+                        {!canAutoFee && (
+                          <p className="text-[11px] text-slate-500">
+                            Nhập tay — muốn tính tự động thì vào Cài đặt để gắn API key + tọa độ shop.
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <NumberInput
+                            value={deliveryFee}
+                            onChange={(d) => {
+                              setDeliveryFee(Number(d) || 0);
+                              setFeeManual(true);
+                            }}
+                            placeholder="0"
+                            aria-label="Phí giao hàng (đ)"
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                          <span className="text-[11px] text-slate-500 shrink-0">đ</span>
+                        </div>
+                      </div>
+                    </>
                   )}
                   <input
                     type="text"
@@ -427,11 +523,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             {/* Bottom Sticky Checkout */}
             <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-medium text-slate-500">Tổng thanh toán:</span>
-                <span className="text-lg font-extrabold text-emerald-700">
-                  {formatVND(totalAmount)}
-                </span>
+              <div className="space-y-1 mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Tiền hàng:</span>
+                  <span className="text-xs font-bold text-slate-700">{formatVND(totalAmount)}</span>
+                </div>
+                {deliveryType === 'DELIVERY' && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Phí giao hàng:</span>
+                    <span className="text-xs font-bold text-slate-700">{formatVND(deliveryFee)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Tổng thanh toán:</span>
+                  <span className="text-lg font-extrabold text-emerald-700">
+                    {formatVND(totalAmount + (deliveryType === 'DELIVERY' ? deliveryFee : 0))}
+                  </span>
+                </div>
               </div>
               <button
                 type="submit"

@@ -177,6 +177,7 @@ export const apiClient = {
     customerPhone: string;
     customerAddress: string;
     deliveryType: 'DELIVERY' | 'PICKUP';
+    deliveryFee?: number;
     paymentMethod: 'VIETQR' | 'CASH' | 'DEBT';
     note: string;
     items: { productId: string; quantity: number }[];
@@ -235,6 +236,53 @@ export const apiClient = {
     } catch (err) {
       console.warn('Backend API saveSettings error:', err);
       return false;
+    }
+  },
+
+  // Tính phí giao hàng từ địa chỉ (Geoapify, server tính theo bảng giá cài đặt)
+  async getDeliveryFee(address: string): Promise<{
+    ok: boolean;
+    distanceM?: number;
+    fee?: number;
+    beyondZones?: boolean;
+    formattedAddress?: string;
+    error?: string;
+  }> {
+    try {
+      const res = await apiFetch('/api/orders?action=delivery-fee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data.error || 'unknown' };
+      return { ok: true, ...data };
+    } catch (err) {
+      console.warn('Backend API getDeliveryFee error:', err);
+      return { ok: false, error: 'network' };
+    }
+  },
+
+  // Địa chỉ → tọa độ (chỉ quản lý, dùng khi cài tọa độ cửa hàng)
+  async geocodeAddress(address: string): Promise<{
+    ok: boolean;
+    lat?: number;
+    lon?: number;
+    formatted?: string;
+    error?: string;
+  }> {
+    try {
+      const res = await apiFetch('/api/settings?action=geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data.error || 'unknown' };
+      return { ok: true, ...data };
+    } catch (err) {
+      console.warn('Backend API geocodeAddress error:', err);
+      return { ok: false, error: 'network' };
     }
   },
 
